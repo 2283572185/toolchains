@@ -51,6 +51,10 @@ files = ["script/*.py", "script/.gdbinit"]
 
 [tool.poetry.dependencies]
 python = "^3.12.0"
+psutil = ">=5.9.0"
+packaging = ">=21.0"
+
+[tool.poetry.dev-dependencies]
 build = "1.2.2.post1"
 cachecontrol = "0.14.1"
 certifi = "2024.12.14"
@@ -69,14 +73,12 @@ more-itertools = "10.5.0"
 msgpack = "1.1.0"
 mypy = "1.14.1"
 mypy-extensions = "1.0.0"
-packaging = "24.2"
 pexpect = "4.9.0"
 pkginfo = "1.12.0"
 platformdirs = "4.3.6"
 poetry = "1.8.5"
 poetry-core = "1.9.1"
 poetry-plugin-export = "1.8.0"
-psutil = "6.1.1"
 ptyprocess = "0.7.0"
 pyproject-hooks = "1.2.0"
 rapidfuzz = "3.11.0"
