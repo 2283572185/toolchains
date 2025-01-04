@@ -1,7 +1,7 @@
 import os
 import shutil
-import common
-import typing
+from . import common
+from collections.abc import Callable
 
 lib_list = ("expat", "gcc", "binutils", "gmp", "mpfr", "linux", "mingw", "pexports", "python-embed", "glibc", "newlib")
 dll_target_list = (
@@ -366,7 +366,7 @@ def get_mingw_gdb_lib_options(env: environment) -> list[str]:
         env (environment): gcc环境
     """
     lib_prefix_list = get_mingw_lib_prefix_list(env)
-    prefix_selector = lambda lib: f"--with-{lib}=" if lib in ("gmp", "mpfr") else f"--with-lib{lib}-prefix="
+    prefix_selector: Callable[[str], str] = lambda lib: f"--with-{lib}=" if lib in ("gmp", "mpfr") else f"--with-lib{lib}-prefix="
     return [prefix_selector(lib) + f"{lib_prefix_list[lib]}" for lib in ("gmp", "mpfr", "expat")]
 
 
@@ -407,7 +407,7 @@ class cross_environment:
         gdb: bool,
         gdbserver: bool,
         newlib: bool,
-        modifier: typing.Callable[["cross_environment"], None] | None,
+        modifier: Callable[["cross_environment"], None] | None,
         home: str,
         jobs: int,
         prefix_dir: str,
