@@ -305,6 +305,8 @@ def main() -> None:
 
     # 检查合并配置后环境是否正确
     current_config.check()
+    current_config.save_config(args)
+
     if args.system:
         print(f"Please install following system libs: {' '.join(get_system_lib_list())}")
     elif args.auto:
@@ -315,8 +317,6 @@ def main() -> None:
         download(current_config)
     elif args.remove is not None:
         remove(current_config, args.remove or all_lib_list.all_lib_list)
-
-    current_config.save_config(args)
 
 
 if __name__ == "__main__":
