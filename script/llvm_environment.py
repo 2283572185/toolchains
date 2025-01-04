@@ -1,14 +1,13 @@
 import os
 import shutil
-from common import *
-from auto_gcc import scripts
+from . import common
 import sys
 
 lib_list = ("zlib", "libxml2")
 subproject_list = ("llvm", "runtimes")
 
 
-def get_cmake_option(**kwargs) -> list[str]:
+def get_cmake_option(**kwargs: dict[str, str]) -> list[str]:
     """将字典转化为cmake选项列表
 
     Returns:
@@ -39,7 +38,7 @@ def gnu_to_llvm(target: str) -> str:
         return target
 
 
-class environment(basic_environment):
+class environment(common.basic_environment):
     host: str  # host平台
     build: str  # build平台
     bootstrap: bool = False  # 是否进行自举以便不依赖gnu相关库，需要多次编译
@@ -120,15 +119,17 @@ class environment(basic_environment):
 
     def _set_prefix(self) -> None:
         """设置安装路径"""
-        self.prefix["llvm"] = os.path.join(self.home, self.name) if self.stage == 1 else os.path.join(self.home, f"{self.name}-new")
+        self.prefix["llvm"] = (
+            os.path.join(self.prefix_dir, self.name) if self.stage == 1 else os.path.join(self.prefix_dir, f"{self.name}-new")
+        )
         self.prefix["runtimes"] = os.path.join(self.prefix["llvm"], "install")
         self.compiler_rt_dir = os.path.join(self.prefix["llvm"], "lib", "clang", self.major_version, "lib")
 
-    def __init__(self, build: str = "x86_64-linux-gnu", host: str = "") -> None:
+    def __init__(self, build: str, host: str | None, home: str, jobs: int, prefix_dir: str) -> None:
         self.build = build
-        self.host = host if host != "" else self.build
+        self.host = host or self.build
         name_without_version = f"{self.host}-clang"
-        super().__init__("20.0.0", name_without_version)
+        super().__init__(build, "20.0.0", name_without_version, home, jobs, prefix_dir)
         # 设置prefix
         self._set_prefix()
         for i in sys.argv[1:]:
@@ -152,11 +153,11 @@ class environment(basic_environment):
         for project in subproject_list:
             self.source_dir[project] = os.path.join(self.home, "llvm", project)
             self.build_dir[project] = os.path.join(self.home, "llvm", f"build-{self.host}-{project}")
-            check_lib_dir(project, self.source_dir[project])
+            common.check_lib_dir(project, self.source_dir[project])
         for lib in lib_list:
             self.source_dir[lib] = os.path.join(self.home, lib)
             self.build_dir[lib] = os.path.join(self.source_dir[lib], "build")
-            check_lib_dir(lib, self.source_dir[lib])
+            common.check_lib_dir(lib, self.source_dir[lib])
         # 设置sysroot目录
         self.sysroot_dir = os.path.join(self.home, "sysroot")
         # 第2阶段不编译运行库
@@ -185,7 +186,7 @@ class environment(basic_environment):
         self.stage += 1
         self._set_prefix()
 
-    def get_compiler(self, target: str, *command_list_in) -> list[str]:
+    def get_compiler(self, target: str, *command_list_in: str) -> list[str]:
         """获取编译器选项
 
         Args:
@@ -215,7 +216,7 @@ class environment(basic_environment):
         command_list.append(f'-DCMAKE_LINK_FLAGS="{" ".join(command_list_in)}"')
         return command_list
 
-    def config(self, project: str, target: str, *command_list, **cmake_option_list) -> None:
+    def config(self, project: str, target: str, *command_list: str, **cmake_option_list: dict[str, str]) -> None:
         """配置项目
 
         Args:
@@ -224,11 +225,11 @@ class environment(basic_environment):
             command_list: 附加编译选项
             cmake_option_list: 附加cmake配置选项
         """
-        remove_if_exists(self.build_dir[project])
+        common.remove_if_exists(self.build_dir[project])
         assert project in (*subproject_list, *lib_list)
         command = f"cmake -G Ninja --install-prefix {self.prefix[project]} -B {self.build_dir[project]} -S {self.source_dir[project]} "
         command += " ".join(self.get_compiler(target, *command_list) + get_cmake_option(**cmake_option_list))
-        run_command(command)
+        common.run_command(command)
 
     def make(self, project: str) -> None:
         """构建项目
@@ -237,7 +238,7 @@ class environment(basic_environment):
             project (str): 目标项目
         """
         assert project in (*subproject_list, *lib_list)
-        run_command(f"ninja -C {self.build_dir[project]} -j{self.jobs}")
+        common.run_command(f"ninja -C {self.build_dir[project]} -j{self.jobs}")
 
     def install(self, project: str) -> None:
         """安装项目
@@ -246,7 +247,7 @@ class environment(basic_environment):
             project (str): 目标项目
         """
         assert project in (*subproject_list, *lib_list)
-        run_command(f"ninja -C {self.build_dir[project]} install/strip -j{self.jobs}")
+        common.run_command(f"ninja -C {self.build_dir[project]} install/strip -j{self.jobs}")
 
     def remove_build_dir(self, project: str) -> None:
         """移除构建目录
@@ -278,27 +279,27 @@ class environment(basic_environment):
                     dst_dir = os.path.join(self.sysroot_dir, target, "lib")
                     for file in os.listdir(src_dir):
                         if file.endswith("dll"):
-                            copy(os.path.join(src_dir, file), os.path.join(dst_dir, file))
+                            common.copy(os.path.join(src_dir, file), os.path.join(dst_dir, file))
                 case "lib":
                     dst_dir = os.path.join(self.sysroot_dir, target, "lib")
-                    mkdir(self.compiler_rt_dir, False)
+                    common.mkdir(self.compiler_rt_dir, False)
                     for item in os.listdir(src_dir):
                         # 复制compiler-rt
                         if item == self.system_list[target].lower():
                             rt_dir = os.path.join(self.compiler_rt_dir, item)
-                            mkdir(rt_dir, False)
+                            common.mkdir(rt_dir, False)
                             for file in os.listdir(os.path.join(src_dir, item)):
-                                copy(os.path.join(src_dir, item, file), os.path.join(rt_dir, file))
+                                common.copy(os.path.join(src_dir, item, file), os.path.join(rt_dir, file))
                             continue
                         # 复制其他库
-                        copy(os.path.join(src_dir, item), os.path.join(dst_dir, item))
+                        common.copy(os.path.join(src_dir, item), os.path.join(dst_dir, item))
                 case "include":
                     # 复制__config_site
                     dst_dir = os.path.join(self.sysroot_dir, target, "include")
-                    copy(os.path.join(src_dir, "c++", "v1", "__config_site"), os.path.join(dst_dir, "__config_site"))
+                    common.copy(os.path.join(src_dir, "c++", "v1", "__config_site"), os.path.join(dst_dir, "__config_site"))
                     # 对于Windows目标，需要在sysroot/include下准备一份头文件
                     dst_dir = os.path.join(self.sysroot_dir, "include", "c++")
-                    copy(os.path.join(self.prefix["llvm"], "include", "c++"), dst_dir, False)
+                    common.copy(os.path.join(self.prefix["llvm"], "include", "c++"), dst_dir, False)
 
     def copy_llvm_libs(self) -> None:
         """复制工具链所需库"""
@@ -311,23 +312,23 @@ class environment(basic_environment):
         for file in filter(
             lambda file: file.startswith(("libc++", "libunwind")) and not file.endswith((".a", ".json")), os.listdir(src_prefix)
         ):
-            copy(os.path.join(src_prefix, file), os.path.join(dst_prefix, file))
+            common.copy(os.path.join(src_prefix, file), os.path.join(dst_prefix, file))
         # 复制公用libc++和libunwind头文件
         src_prefix = os.path.join(native_bin_dir, "..", "include")
         dst_prefix = os.path.join(self.prefix["llvm"], "include")
         for item in filter(lambda item: "unwind" in item or item == "c++", os.listdir(src_prefix)):
-            copy(os.path.join(src_prefix, item), os.path.join(dst_prefix, item))
+            common.copy(os.path.join(src_prefix, item), os.path.join(dst_prefix, item))
 
         if self.build != self.host:
             # 从build下的本地工具链复制compiler-rt
             # 其他库在sysroot中，无需复制
             src_prefix = native_compiler_rt_dir
             dst_prefix = self.compiler_rt_dir
-            copy(src_prefix, dst_prefix, True)
+            common.copy(src_prefix, dst_prefix, True)
             # 复制libxml2
             src_path = os.path.join(self.prefix["libxml2"], "bin", "libxml2.dll")
             dst_path = os.path.join(self.prefix["llvm"], "lib", "libxml2.dll")
-            copy(src_path, dst_path)
+            common.copy(src_path, dst_path)
 
     def change_name(self) -> None:
         """修改多阶段自举时的安装目录名"""

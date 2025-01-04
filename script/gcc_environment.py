@@ -61,6 +61,10 @@ disable_hosted_option_pure = (
 arch_32_bit_list = ("arm", "armeb", "i486", "i686", "risc32", "risc32be")
 
 
+def _get_specific_environment(self: "environment", host: str | None = None, target: str | None = None) -> "environment":
+    return environment(self.build, host, target, self.home, self.jobs, self.prefix_dir)
+
+
 class environment(common.basic_environment):
     build: str  # build平台
     host: str  # host平台
@@ -85,12 +89,12 @@ class environment(common.basic_environment):
 
     def __init__(
         self,
-        build: str = "x86_64-linux-gnu",
-        host: None | str = None,
-        target: None | str = None,
-        home: str = os.environ["HOME"],
-        jobs: int = 1,
-        prefix_dir: str = os.environ["HOME"],
+        build: str,
+        host: None | str,
+        target: None | str,
+        home: str,
+        jobs: int,
+        prefix_dir: str,
     ) -> None:
         self.build = build
         self.host = host or build
@@ -107,7 +111,7 @@ class environment(common.basic_environment):
         self.cross_compiler = self.host != self.target
 
         name_without_version = (f"{self.host}-host-{self.target}-target" if self.cross_compiler else f"{self.host}-native") + "-gcc"
-        super().__init__("15.0.0", name_without_version, home, jobs)
+        super().__init__(build, "15.0.0", name_without_version, home, jobs, prefix_dir)
 
         self.prefix = os.path.join(prefix_dir, self.name)
         self.lib_prefix = os.path.join(self.prefix, self.target) if self.cross_compiler else self.prefix
@@ -144,11 +148,11 @@ class environment(common.basic_environment):
         self.rpath_option = f'"-Wl,-rpath={lib_name}"'
         # 加载工具链
         if self.toolchain_type in ("cross", "canadian", "canadian cross"):
-            environment().register_in_env()
+            _get_specific_environment(self).register_in_env()
         if self.toolchain_type in ("canadian", "canadian cross"):
-            environment(target=self.host).register_in_env()
+            _get_specific_environment(self, target=self.host).register_in_env()
         if self.toolchain_type == "canadian cross":
-            environment(target=self.target).register_in_env()
+            _get_specific_environment(self, target=self.target).register_in_env()
         # 将自身注册到环境变量中
         self.register_in_env()
         self.freestanding = self.target_field.abi in ("elf", "eabi")
@@ -320,7 +324,7 @@ class environment(common.basic_environment):
     def copy_from_cross_toolchain(self) -> None:
         """从交叉工具链中复制libc、libstdc++、libgcc、linux头文件、gdbserver等到本工具链中"""
         # 从交叉工具链中复制libc、libstdc++、linux头文件等到本工具链中
-        cross_toolchain = environment(self.build, self.build, self.target)
+        cross_toolchain = _get_specific_environment(self, target=self.target)
         for dir in filter(lambda x: x != "bin", os.listdir(cross_toolchain.lib_prefix)):
             common.copy(os.path.join(cross_toolchain.lib_prefix, dir), os.path.join(self.lib_prefix, dir))
 
@@ -372,7 +376,7 @@ def get_mingw_gdb_lib_options(env: environment) -> list[str]:
 
 def copy_pretty_printer(env: environment) -> None:
     """从x86_64-linux-gnu本地工具链中复制pretty-printer到不带newlib的独立工具链"""
-    native_gcc = environment()
+    native_gcc = _get_specific_environment(env)
     for dir in os.listdir(native_gcc.share_dir):
         src_dir = os.path.join(native_gcc.share_dir, dir)
         dst_dir = os.path.join(env.share_dir, dir)
@@ -521,7 +525,7 @@ class cross_environment:
 
         # 复制gdb所需运行库
         if self.need_gdb:
-            gcc = environment(target=self.env.host)
+            gcc = _get_specific_environment(self.env, target=self.env.host)
             if self.host_os == "linux":
                 for dll in ("libstdc++.so.6", "libgcc_s.so.1"):
                     shutil.copy(os.path.join(gcc.rpath_dir, dll), self.env.rpath_dir)

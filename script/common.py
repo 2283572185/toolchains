@@ -10,6 +10,7 @@ import subprocess
 from collections.abc import Callable
 from typing import Self
 
+
 class command_dry_run:
     """是否只显示命令而不实际执行"""
 
@@ -243,6 +244,7 @@ def check_lib_dir(lib: str, lib_dir: str, do_assert: bool = True) -> bool:
 class basic_environment:
     """gcc和llvm共用基本环境"""
 
+    build: str  # build平台
     version: str  # 版本号
     major_version: str  # 主版本号
     home: str  # 源代码所在的目录
@@ -250,9 +252,11 @@ class basic_environment:
     current_dir: str  # toolchains项目所在目录
     name_without_version: str  # 不带版本号的工具链名
     name: str  # 工具链名
+    prefix_dir: str  # 安装路径
     bin_dir: str  # 安装后可执行文件所在目录
 
-    def __init__(self, version: str, name_without_version: str, home: str, jobs: int) -> None:
+    def __init__(self, build: str, version: str, name_without_version: str, home: str, jobs: int, prefix_dir: str) -> None:
+        self.build = build
         self.version = version
         self.major_version = self.version.split(".")[0]
         self.name_without_version = name_without_version
@@ -260,7 +264,8 @@ class basic_environment:
         self.home = home
         self.jobs = jobs
         self.current_dir = os.path.abspath(os.path.dirname(__file__))
-        self.bin_dir = os.path.join(self.home, self.name, "bin")
+        self.prefix_dir = prefix_dir
+        self.bin_dir = os.path.join(prefix_dir, self.name, "bin")
 
     def compress(self, name: str | None = None) -> None:
         """压缩构建完成的工具链
