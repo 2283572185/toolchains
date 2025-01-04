@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 import os
 import argparse
-import common
-from download_source import *
+from . import common
+from .download_source import *
 
 
 def _exist_echo(lib: str) -> None:
@@ -236,7 +236,8 @@ __all__ = [
     "remove",
 ]
 
-if __name__ == "__main__":
+
+def main() -> None:
     default_config = configure()
 
     parser = argparse.ArgumentParser(
@@ -305,7 +306,7 @@ if __name__ == "__main__":
     # 检查合并配置后环境是否正确
     current_config.check()
     if args.system:
-        print(f"Please install following system libs: {" ".join(get_system_lib_list())}")
+        print(f"Please install following system libs: {' '.join(get_system_lib_list())}")
     elif args.auto:
         auto_download(current_config)
     elif args.update:
@@ -316,3 +317,7 @@ if __name__ == "__main__":
         remove(current_config, args.remove or all_lib_list.all_lib_list)
 
     current_config.save_config(args)
+
+
+if __name__ == "__main__":
+    main()

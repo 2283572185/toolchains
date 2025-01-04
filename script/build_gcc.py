@@ -3,10 +3,10 @@
 import os
 import math
 from typing import Callable
-from gcc_environment import cross_environment as cross
-import common
+from .gcc_environment import cross_environment as cross
+from . import common
 import argparse
-from modifier import modifier_list
+from .modifier import modifier_list
 
 # 列表不包含vendor字段
 host_list = ("x86_64-linux-gnu", "x86_64-w64-mingw32")

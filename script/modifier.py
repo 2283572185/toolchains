@@ -1,11 +1,11 @@
 from typing import Callable
-import gcc_environment as gcc
+from . import gcc_environment as gcc
 
 # 修改器列表
 modifier_list: dict[str, Callable[[gcc.cross_environment], None]] = {}
 
 
-def register(fn):
+def register(fn: Callable[[gcc.cross_environment], None]) -> Callable[[gcc.cross_environment], None]:
     """注册修改器到列表
 
     Args:
@@ -36,9 +36,11 @@ def loongarch64_loongnix_linux_gnu_modifier(env: gcc.cross_environment) -> None:
     env.libc_option.append("--enable-obsolete-rpc")
     env.gcc_option.append("--disable-libsanitizer")
 
+
 @register
 def x86_64_w64_mingw32_modifier(env: gcc.cross_environment) -> None:
     env.libc_option += ["--disable-lib32", "--enable-lib64"]
+
 
 @register
 def i686_w64_mingw32_modifier(env: gcc.cross_environment) -> None:

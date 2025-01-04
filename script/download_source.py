@@ -1,4 +1,4 @@
-import common
+from . import common
 import enum
 import packaging.version as version
 import os
@@ -251,11 +251,11 @@ class all_lib_list:
     }
     necessary_extra_lib_list: typing.Final[set[str]] = {"python-embed", "gmp", "mpfr"}  # 必须的非git托管包
     optional_extra_lib_list: typing.Final[set[str]] = {lib for lib in extra_lib_list} - necessary_extra_lib_list  # 可选的非git托管包
-    all_lib_list: typing.Final[list[str]] = [*git_lib_list_github, *extra_lib_list, "gcc_contrib"] # 所有受支持的包
+    all_lib_list: typing.Final[list[str]] = [*git_lib_list_github, *extra_lib_list, "gcc_contrib"]  # 所有受支持的包
 
     @classmethod
     def get_prefer_git_lib_list(cls, config: "configure") -> dict[str, git_url]:
-        return vars(cls)[f"git_lib_list_{config.git_remote}"]
+        return typing.cast(dict[str, git_url], getattr(cls, f"git_lib_list_{config.git_remote}"))
 
 
 class configure(common.basic_configure):
@@ -403,7 +403,7 @@ class extra_git_options_list:
     @staticmethod
     def get_option(config: configure, lib: str) -> list[str]:
         if lib in vars(extra_git_options_list) and not common.command_dry_run.get():
-            return getattr(extra_git_options_list, lib)(config)
+            return typing.cast(list[str], getattr(extra_git_options_list, lib)(config))
         return []
 
 

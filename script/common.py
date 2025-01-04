@@ -8,7 +8,7 @@ import inspect
 import itertools
 import subprocess
 from collections.abc import Callable
-
+from typing import Self
 
 class command_dry_run:
     """是否只显示命令而不实际执行"""
@@ -51,7 +51,7 @@ def _support_dry_run[**P, R](echo_fn: Callable[..., str | None] | None = None) -
             dry_run: bool | None = bound_args.arguments.get("dry_run")
             assert isinstance(dry_run, bool | None), f"The param dry_run must be a bool or None."
             if dry_run is None and command_dry_run.get() or dry_run:
-                return
+                return None
             return fn(*bound_args.args, **bound_args.kwargs)
 
         return wrapper
@@ -97,7 +97,7 @@ def run_command(
 
 
 @_support_dry_run(lambda path: f"[toolchains] Create directory {path}.")
-def mkdir(path: str, remove_if_exist=True, dry_run: bool | None = None) -> None:
+def mkdir(path: str, remove_if_exist: bool = True, dry_run: bool | None = None) -> None:
     """创建目录
 
     Args:
@@ -111,7 +111,7 @@ def mkdir(path: str, remove_if_exist=True, dry_run: bool | None = None) -> None:
 
 
 @_support_dry_run(lambda src, dst: f"[toolchains] Copy {src} -> {dst}.")
-def copy(src: str, dst: str, overwrite=True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
+def copy(src: str, dst: str, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
     """复制文件或目录
 
     Args:-> Callable[[Callable[P, R]], functools._Wrapped[P, R, P, R | None]]
@@ -138,7 +138,7 @@ def copy(src: str, dst: str, overwrite=True, follow_symlinks: bool = False, dry_
 
 
 @_support_dry_run(lambda src, dst: f"[toolchains] Copy {src} -> {dst} if src exists.")
-def copy_if_exist(src: str, dst: str, overwrite=True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
+def copy_if_exist(src: str, dst: str, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
     """如果文件或目录存在则复制文件或目录
 
     Args:
@@ -220,7 +220,7 @@ class chdir_guard:
         chdir(self.cwd, self.dry_run)
 
 
-def check_lib_dir(lib: str, lib_dir: str, do_assert=True) -> bool:
+def check_lib_dir(lib: str, lib_dir: str, do_assert: bool = True) -> bool:
     """检查库目录是否存在
 
     Args:
@@ -370,7 +370,7 @@ class basic_configure:
         )
 
     @classmethod
-    def parse_args(cls, args: argparse.Namespace):
+    def parse_args(cls, args: argparse.Namespace) -> Self:
         _check_home(args.home)
         command_dry_run.set(args.dry_run)
         args_list = vars(args)
