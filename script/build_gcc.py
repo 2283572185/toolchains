@@ -8,6 +8,7 @@ from . import common
 import argparse
 from .build_gcc_source import *
 
+
 class configure(common.basic_configure):
     build: str  # 构建平台
     gdb: bool  # 是否构建gdb
@@ -46,7 +47,10 @@ def check_triplet(host: str, target: str) -> None:
         host (str): 宿主平台
         target (str): 目标平台
     """
-    for input_triplet, triplet_list, name in ((host, support_platform_list.host_list, "Host"), (target, support_platform_list.target_list, "Target")):
+    for input_triplet, triplet_list, name in (
+        (host, support_platform_list.host_list, "Host"),
+        (target, support_platform_list.target_list, "Target"),
+    ):
         input_triplet_field = common.triplet_field(input_triplet)
         for support_triplet in triplet_list:
             support_triplet_field = common.triplet_field(support_triplet)
