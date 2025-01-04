@@ -23,11 +23,9 @@ class configure(common.basic_configure):
         gdb: bool = True,
         gdbserver: bool = True,
         newlib: bool = True,
-        home: str = os.environ["HOME"],
         jobs: int = math.floor((os.cpu_count() or 1) * 1.5),
-        prefix_dir: str = os.environ["HOME"],
+        prefix_dir: str = os.path.expanduser("~"),
     ) -> None:
-        super().__init__(home)
         self.build = build
         self.gdb = gdb
         self.gdbserver = gdbserver
@@ -102,7 +100,7 @@ if __name__ == "__main__":
     )
     configure.add_argument(parser)
     parser.add_argument("--build", type=str, help="The build platform of the GCC toolchain.", default=default_config.build)
-    parser.add_argument("--host", type=str, help="The host platform of the GCC toolchain.", default="x86_64-linux-gnu")
+    parser.add_argument("--host", type=str, help="The host platform of the GCC toolchain.", default=default_config.build)
     parser.add_argument("--target", type=str, help="The target platform of the GCC toolchain.")
     parser.add_argument(
         "--gdb", action=argparse.BooleanOptionalAction, help="Whether to enable gdb support in GCC toolchain.", default=default_config.gdb

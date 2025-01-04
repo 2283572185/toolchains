@@ -270,7 +270,6 @@ class configure(common.basic_configure):
     def __init__(
         self,
         glibc_version: str | None = get_current_glib_version(),
-        home: str = os.environ["HOME"],
         clone_type: str = git_clone_type.partial,
         depth: int = 1,
         ssh: bool = False,
@@ -278,7 +277,6 @@ class configure(common.basic_configure):
         retry: int = 5,
         remote: str = git_prefer_remote.github,
     ) -> None:
-        super().__init__(home)
         self.glibc_version = glibc_version
         self.clone_type = git_clone_type[clone_type]
         self.shallow_clone_depth = depth

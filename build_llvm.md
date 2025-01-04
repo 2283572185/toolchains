@@ -208,7 +208,7 @@ def overwrite_copy(src: str, dst: str):
             os.remove(dst)
         shutil.copyfile(src, dst, follow_symlinks=False)
 
-home = os.environ["HOME"]
+home = os.path.expanduser("~")
 prefix = f"{home}/x86_64-linux-gnu-clang20/install"
 sysroot = f"{home}/sysroot"
 compiler_rt = f"{home}/x86_64-linux-gnu-clang20/lib/clang/20/lib"

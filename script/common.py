@@ -93,7 +93,7 @@ def run_command(
             raise RuntimeError(f'Command "{command}" failed.')
         elif echo:
             print(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.')
-            return None
+        return None
     return result
 
 
@@ -353,9 +353,6 @@ def _check_home(home: str) -> None:
 class basic_configure:
     home: str  # 源码树根目录
 
-    def __init__(self, home: str = os.environ["HOME"]) -> None:
-        self.home = os.path.abspath(home)
-
     @staticmethod
     def add_argument(parser: argparse.ArgumentParser) -> None:
         """为argparse添加--home、--export和--import选项
@@ -363,7 +360,7 @@ class basic_configure:
         Args:
             parser (argparse.ArgumentParser): 命令行解析器
         """
-        parser.add_argument("--home", type=str, help="The home directory to find source trees.", default=os.environ["HOME"])
+        parser.add_argument("--home", type=str, help="The home directory to find source trees.", default=os.path.expanduser("~"))
         parser.add_argument("--export", dest="export_file", type=str, help="Export settings to specific file.")
         parser.add_argument("--import", dest="import_file", type=str, help="Import settings from specific file.")
         parser.add_argument(
@@ -381,9 +378,12 @@ class basic_configure:
         args_list = vars(args)
         parma_list: list = []
         for parma in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
+            assert parma != "home", "This function will set home. So home should not in the parma list of the __init__ function."
             assert parma in args_list, f"The parma {parma} is not in args. Every parma except self should be able to find in args."
             parma_list.append(args_list[parma])
-        return cls(*parma_list)
+        result =  cls(*parma_list)
+        result.home = os.path.abspath(args.home)
+        return result
 
     def save_config(self, args: argparse.Namespace) -> None:
         """将配置保存到文件，使用json格式

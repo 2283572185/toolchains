@@ -1090,7 +1090,7 @@ lib32目录下是纯净的glibc文件，故以lib32为参照经行文件复制�
 ```python
 import shutil
 import os
-home_dir = os.environ["HOME"]
+home_dir = os.path.expanduser("~")
 lib_prefix = os.path.join(home_dir, "x86_64-linux-gnu-host-x86_64-ubuntu2004-linux-gnu-gcc15", "x86_64-ubuntu2004-linux-gnu")
 lib_dir = os.path.join(env.lib_prefix, "lib")
 lib32_dir = os.path.join(env.lib_prefix, "lib32")
@@ -1488,8 +1488,8 @@ GROUP (libc.so.6 libc_nonshared.a AS_NEEDED (ld.so.1))
 
 ## 构建mingw到loongarch64-loongnix-linux-gnu的加拿大工具链
 
-| build            | host               | target              |
-| :--------------- | :----------------- | :------------------ |
+| build            | host               | target                         |
+| :--------------- | :----------------- | :----------------------------- |
 | x86_64-linux-gnu | x86_64-w32-mingw64 | loongarch64-loongnix-linux-gnu |
 
 值得注意的是，libc版本、种类不同的工具链是不同的工具链，它们具有不同的target平台，此处目标系统使用的libc为glibc 2.39。交叉工具链的glibc要与目标系统匹配。
