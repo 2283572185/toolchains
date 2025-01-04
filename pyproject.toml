@@ -1,0 +1,94 @@
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "toolchains"
+version = "0.1.0"
+description = "自动化构建GCC和LLVM工具链"
+authors = [
+    "24bit-xjkp <2283572185@qq.com>",
+    "Arendelle <2381642961@qq.com>",
+    "situNagisa <1300296933@qq.com>",
+]
+readme = "README.md"
+license = "MIT"
+package-mode = true
+packages = [{ include = "script" }]
+include = ["readme/*.md", "xmake/*", "CONTRIBUTORS.md"]
+
+[tool.poetry.scripts]
+toolchain-download = "script.download:main"
+
+[tool.black]
+line-length = 140
+skip-string-normalization = false
+include = "(\\.pyi?|script/.gdbinit)$"
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.vscode
+  | \.VSCodeCounter
+  | \.xmake
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = false
+strict_optional = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+files = ["script/*.py", "script/.gdbinit"]
+
+[tool.poetry.dependencies]
+python = "^3.12.0"
+build = "1.2.2.post1"
+cachecontrol = "0.14.1"
+certifi = "2024.12.14"
+charset-normalizer = "3.4.1"
+cleo = "2.1.0"
+colorama = "0.4.6"
+crashtest = "0.4.1"
+distlib = "0.3.9"
+dulwich = "0.21.7"
+fastjsonschema = "2.21.1"
+filelock = "3.16.1"
+idna = "3.10"
+installer = "0.7.0"
+jaraco-classes = "3.4.0"
+more-itertools = "10.5.0"
+msgpack = "1.1.0"
+mypy = "1.14.1"
+mypy-extensions = "1.0.0"
+packaging = "24.2"
+pexpect = "4.9.0"
+pkginfo = "1.12.0"
+platformdirs = "4.3.6"
+poetry = "1.8.5"
+poetry-core = "1.9.1"
+poetry-plugin-export = "1.8.0"
+psutil = "6.1.1"
+ptyprocess = "0.7.0"
+pyproject-hooks = "1.2.0"
+rapidfuzz = "3.11.0"
+requests = "2.32.3"
+requests-toolbelt = "1.0.0"
+setuptools = "75.6.0"
+shellingham = "1.5.4"
+tomlkit = "0.13.2"
+trove-classifiers = "2024.10.21.16"
+typing-extensions = "4.12.2"
+urllib3 = "2.3.0"
+types-psutil = "^6.1.0.20241221"
+keyring = "24.3.1"
+virtualenv = "^20.28.1"
+black = "^24.10.0"

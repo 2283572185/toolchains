@@ -5,3 +5,5 @@ __pycache__
 build
 xmake.lua
 *.cpp
+dist
+.mypy_cache
