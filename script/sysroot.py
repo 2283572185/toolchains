@@ -1,12 +1,10 @@
 import os
-from common import *
-from llvm_environment import *
+from . import common
+from .llvm_environment import environment
 from importlib import import_module
 
-env = environment()
 
-
-def need_build() -> bool:
+def need_build(env: environment) -> bool:
     """是否需要创建原始sysroot
 
     Returns:
@@ -15,9 +13,9 @@ def need_build() -> bool:
     return not os.path.exists(env.sysroot_dir)
 
 
-def build_origin_sysroot() -> None:
+def build_origin_sysroot(env: environment) -> None:
     """创建原始sysroot，即只包含gnu相关库的sysroot，该函数会删除已存在的sysroot"""
-    mkdir(env.sysroot_dir)
+    common.mkdir(env.sysroot_dir)
     # 只包含宿主工具链，因为libc++不支持独立目标
     script_list = [x[0] for x in filter(lambda x: x not in scripts.freestanding_script_list and x[1], scripts.cross_script_list)]
     # 原生工具链不具有linux header和glibc，转而从交叉工具链复制
@@ -32,24 +30,24 @@ def build_origin_sysroot() -> None:
             continue
         # 不复制binutils和multilib
         for dir in filter(lambda x: x not in ("bin", "lib32"), os.listdir(gcc.lib_prefix)):
-            copy(os.path.join(gcc.lib_prefix, dir), os.path.join(env.sysroot_dir, gcc.target, dir))
+            common.copy(os.path.join(gcc.lib_prefix, dir), os.path.join(env.sysroot_dir, gcc.target, dir))
         libgcc_prefix = os.path.join("lib", "gcc", gcc.target, gcc.version)
         src_dir = os.path.join(gcc.prefix, libgcc_prefix)
         dst_dir = os.path.join(env.sysroot_dir, libgcc_prefix)
-        mkdir(dst_dir)
+        common.mkdir(dst_dir)
         # 复制libgcc对应的.o .a文件和include文件夹
         for item in filter(lambda x: x.endswith((".o", ".a", "include")), os.listdir(src_dir)):
-            copy(os.path.join(src_dir, item), os.path.join(dst_dir, item))
+            common.copy(os.path.join(src_dir, item), os.path.join(dst_dir, item))
 
     # 复制说明文件
-    copy(os.path.join(env.current_dir, "..", "readme", "sysroot.md"), os.path.join(env.sysroot_dir, "README.md"))
+    common.copy(os.path.join(env.current_dir, "..", "readme", "sysroot.md"), os.path.join(env.sysroot_dir, "README.md"))
 
 
-def auto_build_sysroot() -> None:
+def auto_build_sysroot(env: environment) -> None:
     """sysroot不存在则自动创建原始sysroot"""
-    if need_build():
-        build_origin_sysroot()
+    if need_build(env):
+        build_origin_sysroot(env)
 
 
-if __name__ == "__main__":
-    build_origin_sysroot()
+# if __name__ == "__main__":
+#     build_origin_sysroot()
