@@ -253,9 +253,9 @@ class all_lib_list:
     optional_extra_lib_list: typing.Final[set[str]] = {lib for lib in extra_lib_list} - necessary_extra_lib_list  # 可选的非git托管包
     all_lib_list: typing.Final[list[str]] = [*git_lib_list_github, *extra_lib_list, "gcc_contrib"]  # 所有受支持的包
 
-    @classmethod
-    def get_prefer_git_lib_list(cls, config: "configure") -> dict[str, git_url]:
-        return typing.cast(dict[str, git_url], getattr(cls, f"git_lib_list_{config.git_remote}"))
+    @staticmethod
+    def get_prefer_git_lib_list(config: "configure") -> dict[str, git_url]:
+        return typing.cast(dict[str, git_url], getattr(all_lib_list, f"git_lib_list_{config.git_remote}"))
 
 
 class configure(common.basic_configure):

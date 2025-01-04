@@ -47,7 +47,7 @@ def build(stage: int = env.stage) -> None:
         env.stage += 1
 
     if env.stage == 3:
-        for target in ['i686-w64-mingw32', 'loongarch64-linux-gnu', 'x86_64-w64-mingw32', 'x86_64-linux-gnu', 'riscv64-linux-gnu']:
+        for target in ["i686-w64-mingw32", "loongarch64-linux-gnu", "x86_64-w64-mingw32", "x86_64-linux-gnu", "riscv64-linux-gnu"]:
             option = env.llvm_option_list_3
             basic_command = ("-stdlib=libc++", "-unwindlib=libunwind", "-rtlib=compiler-rt")
             match target:

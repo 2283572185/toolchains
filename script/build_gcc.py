@@ -6,24 +6,7 @@ from typing import Callable
 from .gcc_environment import cross_environment as cross
 from . import common
 import argparse
-from .modifier import modifier_list
-
-# 列表不包含vendor字段
-host_list = ("x86_64-linux-gnu", "x86_64-w64-mingw32")
-target_list = (
-    "x86_64-linux-gnu",
-    "i686-linux-gnu",
-    "aarch64-linux-gnu",
-    "arm-linux-gnueabi",
-    "arm-linux-gnueabihf",
-    "loongarch64-linux-gnu",
-    "riscv64-linux-gnu",
-    "x86_64-w64-mingw32",
-    "i686-w64-mingw32",
-    "arm-none-eabi",
-    "x86_64-elf",
-)
-
+from .build_gcc_source import *
 
 class configure(common.basic_configure):
     build: str  # 构建平台
@@ -63,7 +46,7 @@ def check_triplet(host: str, target: str) -> None:
         host (str): 宿主平台
         target (str): 目标平台
     """
-    for input_triplet, triplet_list, name in ((host, host_list, "Host"), (target, target_list, "Target")):
+    for input_triplet, triplet_list, name in ((host, support_platform_list.host_list, "Host"), (target, support_platform_list.target_list, "Target")):
         input_triplet_field = common.triplet_field(input_triplet)
         for support_triplet in triplet_list:
             support_triplet_field = common.triplet_field(support_triplet)
@@ -75,19 +58,7 @@ def check_triplet(host: str, target: str) -> None:
 
 def _check_input(args: argparse.Namespace) -> None:
     assert args.jobs > 0, f"Invalid jobs: {args.jobs}."
-    check_triplet(args.host, target_list[0] if args.dump else args.target)
-
-
-def get_modifier(target: str) -> Callable[[cross], None] | None:
-    """从修改器列表中查找对应函数
-
-    Args:
-        target (str): 目标平台
-
-    Returns:
-        Callable | None: 修改器
-    """
-    return modifier_list.get(target)
+    check_triplet(args.host, support_platform_list.target_list[0] if args.dump else args.target)
 
 
 def build_specific_gcc(
@@ -112,10 +83,10 @@ def dump_support_platform() -> None:
     """打印所有受支持的平台"""
 
     print("Host support:")
-    for host in host_list:
+    for host in support_platform_list.host_list:
         print(f"\t{host}")
     print("Target support:")
-    for target in target_list:
+    for target in support_platform_list.target_list:
         print(f"\t{target}")
 
 
@@ -162,6 +133,6 @@ if __name__ == "__main__":
     if args.dump:
         dump_support_platform()
     else:
-        build_specific_gcc(current_config, args.host, args.target, get_modifier(args.target))
+        build_specific_gcc(current_config, args.host, args.target, modifier_list.get_modifier(args.target))
 
     current_config.save_config(args)
