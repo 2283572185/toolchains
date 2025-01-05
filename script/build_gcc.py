@@ -3,7 +3,7 @@
 import os
 import math
 from typing import Callable
-from .gcc_environment import cross_environment as cross
+from .gcc_environment import cross_environment as environment
 from . import common
 import argparse
 from .build_gcc_source import *
@@ -35,7 +35,7 @@ class configure(common.basic_configure):
 
     def check(self) -> None:
         common._check_home(self.home)
-        assert self.jobs > 0, f"Invalid jobs: {args.jobs}."
+        assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
 
 
 def check_triplet(host: str, target: str) -> None:
@@ -67,7 +67,7 @@ def build_specific_gcc(
     config: configure,
     host: str,
     target: str,
-    modifier: None | Callable[[cross], None],
+    modifier: None | Callable[[environment], None],
 ) -> None:
     """构建gcc工具链
 
@@ -77,7 +77,7 @@ def build_specific_gcc(
         target (str): 目标平台
         modifier (Callable[[cross], None], optional): 平台相关的修改器. 默认为None.
     """
-    env = cross(host=host, target=target, modifier=modifier, **vars(config))
+    env = environment(host=host, target=target, modifier=modifier, **vars(config))
     env.build()
 
 
@@ -92,7 +92,7 @@ def dump_support_platform() -> None:
         print(f"\t{target}")
 
 
-if __name__ == "__main__":
+def main() -> None:
     default_config = configure()
 
     parser = argparse.ArgumentParser(
@@ -138,3 +138,7 @@ if __name__ == "__main__":
         build_specific_gcc(current_config, args.host, args.target, modifier_list.get_modifier(args.target))
 
     current_config.save_config(args)
+
+
+if __name__ == "__main__":
+    main()

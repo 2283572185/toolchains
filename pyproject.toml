@@ -18,7 +18,8 @@ packages = [{ include = "script" }]
 include = ["readme/*.md", "xmake/*", "CONTRIBUTORS.md"]
 
 [tool.poetry.scripts]
-toolchain-download = "script.download:main"
+toolchains-download = "script.download:main"
+toolchains-gcc = "script.build_gcc:main"
 
 [tool.black]
 line-length = 140
