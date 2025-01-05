@@ -1,5 +1,6 @@
 import functools
 import os
+import typing
 import psutil
 import shutil
 import json
@@ -9,6 +10,7 @@ import itertools
 import subprocess
 from collections.abc import Callable
 from typing import Self
+import pathlib
 
 
 class command_dry_run:
@@ -352,6 +354,7 @@ def _check_home(home: str) -> None:
 
 class basic_configure:
     home: str  # 源码树根目录
+    _origin_home_path: str  # 用户输入的原始源码树根目录
 
     @staticmethod
     def add_argument(parser: argparse.ArgumentParser) -> None:
@@ -360,9 +363,27 @@ class basic_configure:
         Args:
             parser (argparse.ArgumentParser): 命令行解析器
         """
-        parser.add_argument("--home", type=str, help="The home directory to find source trees.", default=os.path.expanduser("~"))
-        parser.add_argument("--export", dest="export_file", type=str, help="Export settings to specific file.")
-        parser.add_argument("--import", dest="import_file", type=str, help="Import settings from specific file.")
+        parser.add_argument(
+            "--home",
+            type=str,
+            help="The home directory to find source trees. "
+            "If home is a relative path, it will be converted to an absolute path relative to the cwd.",
+            default=os.path.expanduser("~"),
+        )
+        parser.add_argument(
+            "--export",
+            dest="export_file",
+            type=str,
+            help="Export settings to specific file. The origin home path is saved to the configure file.",
+        )
+        parser.add_argument(
+            "--import",
+            dest="import_file",
+            type=str,
+            help="Import settings from specific file. "
+            "If the home in configure file is a a relative path, "
+            "it will be converted to an absolute path relative to the directory of the configure file.",
+        )
         parser.add_argument(
             "--dry-run",
             dest="dry_run",
@@ -381,8 +402,9 @@ class basic_configure:
             assert parma != "home", "This function will set home. So home should not in the parma list of the __init__ function."
             assert parma in args_list, f"The parma {parma} is not in args. Every parma except self should be able to find in args."
             parma_list.append(args_list[parma])
-        result =  cls(*parma_list)
-        result.home = os.path.abspath(args.home)
+        result = cls(*parma_list)
+        result._origin_home_path = args.home
+        result.home = str(pathlib.Path(args.home).absolute())  # 尝试转化为基于当前工作目录的绝对路径
         return result
 
     def save_config(self, args: argparse.Namespace) -> None:
@@ -398,11 +420,16 @@ class basic_configure:
         export_file: str | None = args.export_file
         if export_file:
             try:
+                config_list: dict[str, typing.Any] = vars(self)
+                # 重整home路径，使用用户输入的原生目录
+                config_list["home"] = config_list["_origin_home_path"]
+                del config_list["_origin_home_path"]
+
                 with open(export_file, "w") as file:
                     json.dump(vars(self), file, indent=4)
                 print(f'[toolchains] Settings have been written to file "{export_file}"')
             except Exception as e:
-                raise RuntimeError(f"Export settings failed: {e}")
+                raise RuntimeError(f'Export settings to file "{export_file}" failed: {e}')
 
     def load_config(self, args: argparse.Namespace) -> None:
         """从配置文件中加载配置，然后合并加载的配置和用户输入的配置
@@ -419,10 +446,16 @@ class basic_configure:
             try:
                 with open(import_file) as file:
                     import_config_list = json.load(file)
-                if not isinstance(import_config_list, dict):
-                    raise RuntimeError(f'Invalid configure file "{import_file}".')
+                assert isinstance(import_config_list, dict), f"Invalid configure file. The configure file must begin with a object."
             except Exception as e:
                 raise RuntimeError(f'Import file "{import_file}" failed: {e}')
+
+            if home_path := import_config_list.get("home"):
+                home_path = typing.cast(str | None, home_path)
+                home_path = pathlib.Path(import_config_list["home"])
+                if not home_path.is_absolute():
+                    home_path = pathlib.Path(import_file).parent / home_path
+                import_config_list["home"] = str(home_path)
             current_config_list = vars(self)
             default_config_list = vars(type(self)())
             self.__dict__ = {
@@ -440,8 +473,7 @@ class basic_configure:
             arg_name (str): 用户输入对应参数的名称
             args (argparse.Namespace): 用户输入参数
         """
-        if not isinstance(getattr(self, list_name), list):
-            raise TypeError
+        assert isinstance(getattr(self, list_name), list), f"The {list_name} must be a list."
         if args.import_file and getattr(args, arg_name) == []:
             setattr(self, list_name, getattr(type(self)(), list_name))
 
