@@ -60,7 +60,7 @@ strict_optional = true
 warn_unused_ignores = true
 warn_return_any = true
 warn_unreachable = true
-files = ["script/*.py", "script/.gdbinit"]
+files = ["script/*.py", "script/.gdbinit", "toolchains/*.py"]
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.14.1"
@@ -68,3 +68,4 @@ mypy-extensions = "^1.0.0"
 poetry = "^2.0.0"
 black = "^24.10.0"
 isort = "^5.13.2"
+types-psutil = "^6.1.0.20241221"
