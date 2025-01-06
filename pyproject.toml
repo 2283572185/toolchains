@@ -2,24 +2,29 @@
 requires = ["poetry-core>=1.9.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry]
+[project]
 name = "toolchains"
 version = "0.1.0"
-description = "自动化构建GCC和LLVM工具链"
+description = "Build GCC and LLVM toolchains automatically."
 authors = [
-    "24bit-xjkp <2283572185@qq.com>",
-    "Arendelle <2381642961@qq.com>",
-    "situNagisa <1300296933@qq.com>",
+    { name = "24bit-xjkp", email = "2283572185@qq.com" },
+    { name = "Arendelle", email = "2381642961@qq.com" },
+    { name = "situNagisa", email = "1300296933@qq.com" },
 ]
 readme = "README.md"
 license = "MIT"
-package-mode = true
-packages = [{ include = "script" }]
-include = ["readme/*.md", "xmake/*", "CONTRIBUTORS.md"]
+requires-python = "^3.12.0"
+dependencies = ["psutil>=5.9.0", "packaging>=21.0"]
 
-[tool.poetry.scripts]
-toolchains-download = "script.download:main"
-toolchains-gcc = "script.build_gcc:main"
+[project.scripts]
+toolchains-download = "toolchains.download:main"
+toolchains-gcc = "toolchains.build_gcc:main"
+
+
+[tool.poetry]
+package-mode = true
+packages = [{ include = "toolchains" }]
+include = ["readme/*.md", "script/*", "xmake/*", "CONTRIBUTORS.md"]
 
 [tool.black]
 line-length = 140
@@ -50,48 +55,8 @@ warn_return_any = true
 warn_unreachable = true
 files = ["script/*.py", "script/.gdbinit"]
 
-[tool.poetry.dependencies]
-python = "^3.12.0"
-psutil = ">=5.9.0"
-packaging = ">=21.0"
-
-[tool.poetry.dev-dependencies]
-build = "1.2.2.post1"
-cachecontrol = "0.14.1"
-certifi = "2024.12.14"
-charset-normalizer = "3.4.1"
-cleo = "2.1.0"
-colorama = "0.4.6"
-crashtest = "0.4.1"
-distlib = "0.3.9"
-dulwich = "0.21.7"
-fastjsonschema = "2.21.1"
-filelock = "3.16.1"
-idna = "3.10"
-installer = "0.7.0"
-jaraco-classes = "3.4.0"
-more-itertools = "10.5.0"
-msgpack = "1.1.0"
-mypy = "1.14.1"
-mypy-extensions = "1.0.0"
-pexpect = "4.9.0"
-pkginfo = "1.12.0"
-platformdirs = "4.3.6"
-poetry = "1.8.5"
-poetry-core = "1.9.1"
-poetry-plugin-export = "1.8.0"
-ptyprocess = "0.7.0"
-pyproject-hooks = "1.2.0"
-rapidfuzz = "3.11.0"
-requests = "2.32.3"
-requests-toolbelt = "1.0.0"
-setuptools = "75.6.0"
-shellingham = "1.5.4"
-tomlkit = "0.13.2"
-trove-classifiers = "2024.10.21.16"
-typing-extensions = "4.12.2"
-urllib3 = "2.3.0"
-types-psutil = "^6.1.0.20241221"
-keyring = "24.3.1"
-virtualenv = "^20.28.1"
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.14.1"
+mypy-extensions = "^1.0.0"
+poetry = "^2.0.0"
 black = "^24.10.0"
