@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os
 import argparse
 import enum
+import os
 
 assert __name__ == "__main__", "Run this file directly instead of importing it as a module."
 assert (

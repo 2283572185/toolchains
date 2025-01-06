@@ -1,2 +1,1 @@
-from . import download
-from . import build_gcc
+from . import build_gcc, download

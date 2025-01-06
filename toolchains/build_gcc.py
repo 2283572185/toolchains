@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os
-import math
-from typing import Callable
-from .gcc_environment import cross_environment as environment
-from . import common
 import argparse
+import math
+import os
+from typing import Callable
+
+from . import common
 from .build_gcc_source import *
+from .gcc_environment import cross_environment as environment
 
 
 class configure(common.basic_configure):

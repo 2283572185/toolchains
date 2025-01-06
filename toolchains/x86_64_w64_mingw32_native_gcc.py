@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-import gcc_environment as gcc
 import os
 import shutil
+
+import gcc_environment as gcc
 
 env = gcc.environment(host="x86_64-w64-mingw32")
 lib_install_dir_list: dict[str, str] = {}

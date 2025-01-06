@@ -1,7 +1,8 @@
 import os
 import shutil
-from . import common
 import sys
+
+from . import common
 
 lib_list = ("zlib", "libxml2")
 subproject_list = ("llvm", "runtimes")

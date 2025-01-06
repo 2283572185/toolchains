@@ -1,5 +1,6 @@
-from typing import Callable
 import typing
+from typing import Callable
+
 from .gcc_environment import cross_environment as environment
 
 

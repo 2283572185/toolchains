@@ -1,7 +1,8 @@
 import os
 import shutil
-from . import common
 from collections.abc import Callable
+
+from . import common
 
 lib_list = ("expat", "gcc", "binutils", "gmp", "mpfr", "linux", "mingw", "pexports", "python-embed", "glibc", "newlib")
 dll_target_list = (

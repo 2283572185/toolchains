@@ -1,7 +1,8 @@
 import os
+from importlib import import_module
+
 from . import common
 from .llvm_environment import environment
-from importlib import import_module
 
 
 def need_build(env: environment) -> bool:

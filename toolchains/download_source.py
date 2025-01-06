@@ -1,8 +1,10 @@
-from . import common
 import enum
-import packaging.version as version
 import os
 import typing
+
+import packaging.version as version
+
+from . import common
 
 
 class extra_lib_version(enum.StrEnum):
