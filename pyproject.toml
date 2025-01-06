@@ -16,6 +16,9 @@ license = "MIT"
 requires-python = "^3.12.0"
 dependencies = ["psutil>=5.9.0", "packaging>=21.0"]
 
+[project.urls]
+repository = "https://github.com/24bit-xjkp/toolchains"
+
 [project.scripts]
 toolchains-download = "toolchains.download:main"
 toolchains-gcc = "toolchains.build_gcc:main"
@@ -43,6 +46,10 @@ exclude = '''
 )/
 '''
 
+[tool.isort]
+profile = "black"
+line_length = 140
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_untyped_calls = true
@@ -60,3 +67,4 @@ mypy = "^1.14.1"
 mypy-extensions = "^1.0.0"
 poetry = "^2.0.0"
 black = "^24.10.0"
+isort = "^5.13.2"
