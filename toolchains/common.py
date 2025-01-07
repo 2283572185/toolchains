@@ -307,7 +307,7 @@ class triplet_field:
     abi: str  # abi/libc
     num: int  # 非unknown的字段数
 
-    def __init__(self, triplet: str, normalize: bool = True) -> None:
+    def __init__(self, triplet: str, normalize: bool = False) -> None:
         """解析平台名称
 
         Args:
@@ -331,6 +331,8 @@ class triplet_field:
                 self.abi = field[3]
             case _:
                 raise RuntimeError(f'Illegal triplet "{triplet}"')
+
+        assert self.arch and self.vendor and self.os and self.abi, f'Illegal triplet "{triplet}"'
 
         # 正则化
         if normalize:
