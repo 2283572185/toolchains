@@ -1,42 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import argparse
-import math
-import os
-from typing import Callable
+from collections.abc import Callable
 
 from . import common
 from .build_gcc_source import *
 from .gcc_environment import cross_environment as environment
-
-
-class configure(common.basic_configure):
-    build: str  # 构建平台
-    gdb: bool  # 是否构建gdb
-    gdbserver: bool  # 是否构建gdbserver
-    newlib: bool  # 是否构建newlib
-    jobs: int  # 并发数
-    prefix_dir: str  # 工具链安装根目录
-
-    def __init__(
-        self,
-        build: str = "x86_64-linux-gnu",
-        gdb: bool = True,
-        gdbserver: bool = True,
-        newlib: bool = True,
-        jobs: int = math.floor((os.cpu_count() or 1) * 1.5),
-        prefix_dir: str = os.path.expanduser("~"),
-    ) -> None:
-        self.build = build
-        self.gdb = gdb
-        self.gdbserver = gdbserver
-        self.newlib = newlib
-        self.jobs = jobs
-        self.prefix_dir = prefix_dir
-
-    def check(self) -> None:
-        common._check_home(self.home)
-        assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
 
 
 def check_triplet(host: str, target: str) -> None:
@@ -78,7 +47,9 @@ def build_specific_gcc(
         target (str): 目标平台
         modifier (Callable[[cross], None], optional): 平台相关的修改器. 默认为None.
     """
-    env = environment(host=host, target=target, modifier=modifier, **vars(config))
+    config_list = vars(config)
+    del config_list["_origin_home_path"]
+    env = environment(host=host, target=target, modifier=modifier, **config_list)
     env.build()
 
 

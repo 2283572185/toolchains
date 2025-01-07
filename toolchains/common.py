@@ -326,16 +326,32 @@ class triplet_field:
                 self.vendor = "unknown"
                 self.abi = field[2]
             case 4:
-                self.os = field[1]
-                self.vendor = field[2]
+                self.vendor = field[1]
+                self.os = field[2]
                 self.abi = field[3]
             case _:
-                assert False, f'Illegal triplet "{triplet}"'
+                raise RuntimeError(f'Illegal triplet "{triplet}"')
 
         # 正则化
         if normalize:
             if self.os == "none":
                 self.os = "unknown"
+
+    @staticmethod
+    def check(triplet: str) -> bool:
+        """检查平台名称是否合法
+
+        Args:
+            triplet (str): 平台名称
+
+        Returns:
+            bool: 是否合法
+        """
+        try:
+            triplet_field(triplet)
+        except Exception:
+            return False
+        return True
 
     def weak_eq(self, other: "triplet_field") -> bool:
         """弱相等比较，允许vendor字段不同
@@ -347,6 +363,14 @@ class triplet_field:
             bool: 是否相同
         """
         return self.arch == other.arch and self.os == other.os and self.abi == other.abi
+
+    def drop_vendor(self) -> str:
+        """返回去除vendor字段后的triplet
+
+        Returns:
+            str: 不含vendor的triplet
+        """
+        return f"{self.arch}-{self.os}-{self.abi}"
 
 
 def _check_home(home: str) -> None:
@@ -433,9 +457,12 @@ class basic_configure:
                 # 重整home路径，使用用户输入的原生目录
                 config_list["home"] = config_list["_origin_home_path"]
                 del config_list["_origin_home_path"]
+                for key, value in config_list.items():
+                    if isinstance(value, pathlib.Path):
+                        config_list[key] = str(value)
 
                 with open(export_file, "w") as file:
-                    json.dump(vars(self), file, indent=4)
+                    json.dump(config_list, file, indent=4)
                 print(f'[toolchains] Settings have been written to file "{export_file}"')
             except Exception as e:
                 raise RuntimeError(f'Export settings to file "{export_file}" failed: {e}')

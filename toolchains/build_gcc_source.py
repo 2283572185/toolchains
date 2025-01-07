@@ -1,7 +1,12 @@
+from subprocess import CompletedProcess
 import typing
-from typing import Callable
+from collections.abc import Callable
+import math
+import os
+import pathlib
 
 from .gcc_environment import cross_environment as environment
+from . import common
 
 
 class modifier_list:
@@ -54,4 +59,45 @@ class support_platform_list:
     ]
 
 
-__all__ = ["modifier_list", "support_platform_list"]
+def get_default_build_platform() -> str | None:
+    result: CompletedProcess[str] | None = common.run_command("gcc -dumpmachine", True, True, False, False)
+    if result:
+        value: str = result.stdout.strip()
+        if (fields := common.triplet_field(value)).vendor == "pc":
+            value = fields.drop_vendor()
+        return value
+    else:
+        return None
+
+
+class configure(common.basic_configure):
+    build: str | None  # 构建平台
+    gdb: bool  # 是否构建gdb
+    gdbserver: bool  # 是否构建gdbserver
+    newlib: bool  # 是否构建newlib
+    jobs: int  # 并发数
+    prefix_dir: pathlib.Path  # 工具链安装根目录
+
+    def __init__(
+        self,
+        build: str | None = get_default_build_platform(),
+        gdb: bool = True,
+        gdbserver: bool = True,
+        newlib: bool = True,
+        jobs: int = math.floor((os.cpu_count() or 1) * 1.5),
+        prefix_dir: str = str(pathlib.Path.home()),
+    ) -> None:
+        self.build = build
+        self.gdb = gdb
+        self.gdbserver = gdbserver
+        self.newlib = newlib
+        self.jobs = jobs
+        self.prefix_dir = pathlib.Path(prefix_dir)
+
+    def check(self) -> None:
+        common._check_home(self.home)
+        assert self.build and common.triplet_field.check(self.build), f"Invalid build platform: {self.build}."
+        assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
+
+
+__all__ = ["modifier_list", "support_platform_list", "configure"]
