@@ -51,15 +51,8 @@ profile = "black"
 line_length = 140
 
 [tool.mypy]
-check_untyped_defs = true
-disallow_untyped_calls = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-ignore_missing_imports = false
-strict_optional = true
-warn_unused_ignores = true
-warn_return_any = true
-warn_unreachable = true
+strict = true
+pretty = true
 files = ["script/*.py", "script/.gdbinit", "toolchains/*.py"]
 
 [tool.poetry.group.dev.dependencies]

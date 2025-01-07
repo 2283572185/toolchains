@@ -43,7 +43,7 @@ def _support_dry_run[**P, R](echo_fn: Callable[..., str | None] | None = None) -
             bound_args = signature.bind(*args, **kwargs)
             bound_args.apply_defaults()
             if echo_fn:
-                param_list: list = []
+                param_list: list[typing.Any] = []
                 for key in inspect.signature(echo_fn).parameters.keys():
                     assert (
                         key in bound_args.arguments
@@ -398,7 +398,7 @@ class basic_configure:
         _check_home(args.home)
         command_dry_run.set(args.dry_run)
         args_list = vars(args)
-        parma_list: list = []
+        parma_list: list[typing.Any] = []
         for parma in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
             assert parma != "home", "This function will set home. So home should not in the parma list of the __init__ function."
             assert parma in args_list, f"The parma {parma} is not in args. Every parma except self should be able to find in args."
@@ -461,7 +461,7 @@ class basic_configure:
             default_config_list = vars(type(self)())
             self.__dict__ = {
                 # 若import_config中没有则使用default_config中的值，以便在配置类更新后原配置文件可以正确加载
-                key: (import_config_list.get(key, default_config_list[key]) if value == default_config_list[key] else value)
+                key: (import_config_list.get(key, default_value) if (default_value := default_config_list.get(key)) == value else value)
                 for key, value in current_config_list.items()
             }
 
