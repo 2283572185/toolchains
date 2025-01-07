@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import argparse
 import os
 
@@ -177,7 +175,6 @@ def remove_specific_lib(config: configure, lib: str) -> None:
         RuntimeError: 删除未知包时抛出异常
     """
 
-    assert lib in all_lib_list.all_lib_list, f"Unknown lib {lib}."
     if lib in all_lib_list.extra_lib_list:
         install_item: list[str] = all_lib_list.extra_lib_list[lib].install_dir
     elif lib in all_lib_list.git_lib_list_github:
@@ -191,6 +188,8 @@ def remove_specific_lib(config: configure, lib: str) -> None:
             os.path.join(gcc_dir, item)
             for item in filter(lambda x: x.startswith(("gettext", "gmp", "mpc", "mpfr", "isl")), os.listdir(gcc_dir))
         ]
+    else:
+        raise RuntimeError(f"Unknown lib {lib}.")
 
     removed = False
     for dir in install_item:
@@ -220,9 +219,11 @@ def remove(config: configure, libs: list[str]) -> None:
 
 def _check_input(args: argparse.Namespace) -> None:
     """检查输入是否正确"""
-    assert args.glibc_version, f"Invalid glibc version: {args.glibc_version}"
-    assert args.depth > 0, f"Invalid shallow clone depth: {args.depth}."
-    assert args.retry >= 0, f"Invalid network try times: {args.retry}."
+    if args.command in ("download", "auto"):
+        assert args.glibc_version, f"Invalid glibc version: {args.glibc_version}"
+        assert args.depth > 0, f"Invalid shallow clone depth: {args.depth}."
+    if args.command in ("update", "download", "auto"):
+        assert args.retry >= 0, f"Invalid network try times: {args.retry}."
 
 
 __all__ = [
@@ -244,58 +245,64 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Download or update needy libs for building gcc and llvm.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    configure.add_argument(parser)
-    parser.add_argument(
-        "--glibc", dest="glibc_version", type=str, help="The version of glibc of target platform.", default=default_config.glibc_version
+
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands.")
+    update_parser = subparsers.add_parser("update", help="Update installed libs. All libs should be installed before update.")
+    download_parser = subparsers.add_parser("download", help="Download missing libs. This would not update existing libs.")
+    auto_parser = subparsers.add_parser(
+        "auto", help="Download missing libs, then update installed libs. This may take more time because of twice check."
     )
-    parser.add_argument(
-        "--clone-type",
-        type=str,
-        help="How to clone the git repository.",
-        default=default_config.clone_type,
-        choices=git_clone_type,
+    system_parser = subparsers.add_parser("system", help="Print needy system libs and exit.")
+    remove_parser = subparsers.add_parser(
+        "remove", help="Remove installed libs. Use without specific lib name to remove all installed libs."
     )
-    parser.add_argument("--depth", type=int, help="The depth of shallow clone.", default=default_config.shallow_clone_depth)
-    parser.add_argument(
-        "--ssh", type=bool, help="Whether to use ssh when cloning git repositories from github.", default=default_config.git_use_ssh
-    )
-    parser.add_argument(
-        "--extra-libs",
-        action="extend",
-        nargs="*",
-        help="Extra non-git libs to install.",
-        choices=all_lib_list.optional_extra_lib_list,
-    )
-    parser.add_argument(
-        "--retry", type=int, help="The number of retries when a network operation failed.", default=default_config.network_try_times - 1
-    )
-    parser.add_argument(
-        "--remote",
-        type=str,
-        help="The git remote preferred to use. The preferred remote will be used to accelerate git operation when possible.",
-        default=default_config.git_remote,
-        choices=git_prefer_remote,
-    )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        "--update",
-        action="store_true",
-        help="Update installed libs. All libs should be installed before update.",
-    )
-    group.add_argument("--download", action="store_true", help="Download missing libs. This would not update existing libs.")
-    group.add_argument(
-        "--auto",
-        action="store_true",
-        help="Download missing libs, then update installed libs. This may take more time because of twice check.",
-    )
-    group.add_argument("--system", action="store_true", help="Print needy system libs and exit.")
-    group.add_argument(
-        "--remove",
+
+    # 添加公共选项
+    for subparser in (update_parser, download_parser, auto_parser, system_parser, remove_parser):
+        configure.add_argument(subparser)
+    for subparser in (update_parser, download_parser, auto_parser):
+        subparser.add_argument(
+            "--retry", type=int, help="The number of retries when a network operation failed.", default=default_config.network_try_times - 1
+        )
+        subparser.add_argument(
+            "--extra-libs",
+            action="extend",
+            nargs="*",
+            help="Extra non-git libs to install.",
+            choices=all_lib_list.optional_extra_lib_list,
+        )
+    for subparser in (download_parser, auto_parser):
+        subparser.add_argument(
+            "--glibc", dest="glibc_version", type=str, help="The version of glibc of target platform.", default=default_config.glibc_version
+        )
+        subparser.add_argument(
+            "--clone-type",
+            type=str,
+            help="How to clone the git repository.",
+            default=default_config.clone_type,
+            choices=git_clone_type,
+        )
+        subparser.add_argument("--depth", type=int, help="The depth of shallow clone.", default=default_config.shallow_clone_depth)
+        subparser.add_argument(
+            "--ssh", type=bool, help="Whether to use ssh when cloning git repositories from github.", default=default_config.git_use_ssh
+        )
+        subparser.add_argument(
+            "--remote",
+            type=str,
+            help="The git remote preferred to use. The preferred remote will be used to accelerate git operation when possible.",
+            default=default_config.git_remote,
+            choices=git_prefer_remote,
+        )
+
+    # 添加各个子命令专属选项
+    remove_parser.add_argument(
+        "remove",
         action="extend",
         nargs="*",
         help="Remove installed libs. Use without specific lib name to remove all installed libs.",
         choices=all_lib_list.all_lib_list,
     )
+
     args = parser.parse_args()
     # 检查输入是否合法
     _check_input(args)
@@ -308,17 +315,14 @@ def main() -> None:
     current_config.check()
     current_config.save_config(args)
 
-    if args.system:
-        print(f"Please install following system libs: {' '.join(get_system_lib_list())}")
-    elif args.auto:
-        auto_download(current_config)
-    elif args.update:
-        update(current_config)
-    elif args.download:
-        download(current_config)
-    elif args.remove is not None:
-        remove(current_config, args.remove or all_lib_list.all_lib_list)
-
-
-if __name__ == "__main__":
-    main()
+    match (args.command):
+        case "update":
+            update(current_config)
+        case "download":
+            download(current_config)
+        case "auto":
+            auto_download(current_config)
+        case "system":
+            print(f"Please install following system libs: {' '.join(get_system_lib_list())}")
+        case "remove":
+            remove(current_config, args.remove or all_lib_list.all_lib_list)

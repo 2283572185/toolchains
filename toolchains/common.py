@@ -395,15 +395,23 @@ class basic_configure:
 
     @classmethod
     def parse_args(cls, args: argparse.Namespace) -> Self:
+        """解析命令选项并根据选项构造对象
+
+        Args:
+            args (argparse.Namespace): 命令选项
+
+        Returns:
+            Self: 构造的对象，如果命令选项中没有对应参数则使用默认值
+        """
         _check_home(args.home)
         command_dry_run.set(args.dry_run)
         args_list = vars(args)
-        parma_list: list[typing.Any] = []
+        parma_list: dict[str, typing.Any] = {}
         for parma in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
             assert parma != "home", "This function will set home. So home should not in the parma list of the __init__ function."
-            assert parma in args_list, f"The parma {parma} is not in args. Every parma except self should be able to find in args."
-            parma_list.append(args_list[parma])
-        result = cls(*parma_list)
+            if parma in args_list:
+                parma_list[parma] = args_list[parma]
+        result = cls(**parma_list)
         result._origin_home_path = args.home
         result.home = str(pathlib.Path(args.home).absolute())  # 尝试转化为基于当前工作目录的绝对路径
         return result
