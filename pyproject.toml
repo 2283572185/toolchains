@@ -58,7 +58,7 @@ files = ["script/*.py", "script/.gdbinit", "toolchains/*.py"]
 addopts = "-v --maxfail=3"
 testpaths = ["test"]
 python_files = "test_*.py"
-python_classes = "Test*"
+python_classes = "test*"
 python_functions = "test_*"
 
 [tool.poetry.group.dev.dependencies]
