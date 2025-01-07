@@ -14,22 +14,22 @@ dll_target_list = (
 )
 
 # NOTE：添加平台后需要在此处注册dll_name_list
-dll_name_list = {
-    "linux": (
+dll_name_list: dict[str, list[str]] = {
+    "linux": [
         "libgcc_s.so.1",
         "libstdc++.so",
         "libatomic.so",
         "libquadmath.so",
         "libgomp.so",
-    ),
-    "w64": (
+    ],
+    "w64": [
         "libgcc_s_seh-1.dll",
         "libgcc_s_dw2-1.dll",
         "libstdc++-6.dll",
         "libatomic-1.dll",
         "libquadmath-0.dll",
-    ),
-    "unknown": (),
+    ],
+    "unknown": [],
 }
 
 # 带newlib的独立环境需禁用的特性列表
@@ -79,7 +79,7 @@ class environment(common.basic_environment):
     gdbinit_path: str  # 安装后.gdbinit文件所在路径
     lib_dir_list: dict[str, str]  # 所有库所在目录
     tool_prefix: str  # 工具的前缀，如x86_64-w64-mingw32-
-    dll_name_list: tuple  # 该平台上需要保留调试符号的dll列表
+    dll_name_list: list[str]  # 该平台上需要保留调试符号的dll列表
     python_config_path: str  # python_config.sh所在路径
     host_32_bit: bool  # 宿主环境是否是32位的
     rpath_option: str  # 设置rpath的链接选项
