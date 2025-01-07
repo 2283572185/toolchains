@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import argparse
 from collections.abc import Callable
 
@@ -110,7 +108,3 @@ def main() -> None:
         build_specific_gcc(current_config, args.host, args.target, modifier_list.get_modifier(args.target))
 
     current_config.save_config(args)
-
-
-if __name__ == "__main__":
-    main()
