@@ -23,7 +23,6 @@ repository = "https://github.com/24bit-xjkp/toolchains"
 toolchains-download = "toolchains.download:main"
 toolchains-gcc = "toolchains.build_gcc:main"
 
-
 [tool.poetry]
 package-mode = true
 packages = [{ include = "toolchains" }]
