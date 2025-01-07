@@ -54,6 +54,13 @@ strict = true
 pretty = true
 files = ["script/*.py", "script/.gdbinit", "toolchains/*.py"]
 
+[tool.pytest.ini_options]
+addopts = "-v --maxfail=3"
+testpaths = ["test"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.14.1"
 mypy-extensions = "^1.0.0"
@@ -61,3 +68,5 @@ poetry = "^2.0.0"
 black = "^24.10.0"
 isort = "^5.13.2"
 types-psutil = "^6.1.0.20241221"
+pytest = "^8.3.4"
+pytest-cov = "^6.0.0"
