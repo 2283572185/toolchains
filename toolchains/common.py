@@ -395,7 +395,7 @@ class basic_configure:
             type=str,
             help="The home directory to find source trees. "
             "If home is a relative path, it will be converted to an absolute path relative to the cwd.",
-            default=os.path.expanduser("~"),
+            default=str(pathlib.Path.home()),
         )
         parser.add_argument(
             "--export",
@@ -442,6 +442,34 @@ class basic_configure:
         result.home = str(pathlib.Path(args.home).absolute())  # 尝试转化为基于当前工作目录的绝对路径
         return result
 
+    def encode(self) -> dict[str, typing.Any]:
+        """编码self到字典，可供序列化使用
+        使用_origin_home_path作为输出的home字段，不会输出私有字段
+
+        Returns:
+            dict[str, typing.Any]: 编码后的字典
+        """
+        config_list: dict[str, typing.Any] = {}
+        for key, value in vars(self).items():
+            match (key, value):
+                # 不序列化home
+                case ("home", _):
+                    pass
+                # 将_origin_home_path保存到home字段
+                case ("_origin_home_path", _):
+                    config_list["home"] = value
+                # 将pathlib.Path转化为字符串
+                case (_, pathlib.Path()):
+                    config_list[key] = str(value)
+                # 不序列化私有字段
+                case (_, _) if key.startswith("_"):
+                    pass
+                # 正常转化
+                case (_, _):
+                    config_list[key] = value
+
+        return config_list
+
     def save_config(self, args: argparse.Namespace) -> None:
         """将配置保存到文件，使用json格式
 
@@ -455,16 +483,8 @@ class basic_configure:
         export_file: str | None = args.export_file
         if export_file:
             try:
-                config_list: dict[str, typing.Any] = vars(self)
-                # 重整home路径，使用用户输入的原生目录
-                config_list["home"] = config_list["_origin_home_path"]
-                del config_list["_origin_home_path"]
-                for key, value in config_list.items():
-                    if isinstance(value, pathlib.Path):
-                        config_list[key] = str(value)
-
                 with open(export_file, "w") as file:
-                    json.dump(config_list, file, indent=4)
+                    json.dump(self.encode(), file, indent=4)
                 print(f'[toolchains] Settings have been written to file "{export_file}"')
             except Exception as e:
                 raise RuntimeError(f'Export settings to file "{export_file}" failed: {e}')
@@ -489,8 +509,7 @@ class basic_configure:
                 raise RuntimeError(f'Import file "{import_file}" failed: {e}')
 
             if home_path := import_config_list.get("home"):
-                home_path = typing.cast(str | None, home_path)
-                home_path = pathlib.Path(import_config_list["home"])
+                home_path = pathlib.Path(home_path)
                 if not home_path.is_absolute():
                     home_path = pathlib.Path(import_file).parent / home_path
                 import_config_list["home"] = str(home_path)
