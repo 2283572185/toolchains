@@ -1,12 +1,12 @@
-from subprocess import CompletedProcess
-import typing
-from collections.abc import Callable
 import math
 import os
 import pathlib
+import typing
+from collections.abc import Callable
+from subprocess import CompletedProcess
 
-from .gcc_environment import cross_environment as environment
 from . import common
+from .gcc_environment import cross_environment as environment
 
 
 class modifier_list:
