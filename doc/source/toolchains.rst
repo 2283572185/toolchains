@@ -7,6 +7,12 @@ toolchains.download 模块
    :members:
    :show-inheritance:
 
+toolchains.gcc\_environment 模块
+--------------------------------
+.. automodule:: toolchains.gcc_environment
+   :members:
+   :show-inheritance:
+
 toolchains.build\_gcc 模块
 ---------------------------
 .. automodule:: toolchains.build_gcc
