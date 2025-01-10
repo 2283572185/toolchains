@@ -7,3 +7,5 @@ xmake.lua
 *.cpp
 dist
 .mypy_cache
+.coverage
+.pytest_cache

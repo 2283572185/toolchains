@@ -307,7 +307,7 @@ class triplet_field:
     abi: str  # abi/libc
     num: int  # 非unknown的字段数
 
-    def __init__(self, triplet: str, normalize: bool = True) -> None:
+    def __init__(self, triplet: str, normalize: bool = False) -> None:
         """解析平台名称
 
         Args:
@@ -331,6 +331,8 @@ class triplet_field:
                 self.abi = field[3]
             case _:
                 raise RuntimeError(f'Illegal triplet "{triplet}"')
+
+        assert self.arch and self.vendor and self.os and self.abi, f'Illegal triplet "{triplet}"'
 
         # 正则化
         if normalize:
@@ -378,8 +380,42 @@ def _check_home(home: str) -> None:
 
 
 class basic_configure:
-    home: str  # 源码树根目录
-    _origin_home_path: str  # 用户输入的原始源码树根目录
+    """配置基类
+
+    Attributes:
+        encode_name_map: 编码时使用的构造函数参数名->成员名映射表
+    """
+
+    home: str
+    _origin_home_path: str
+    _args: argparse.Namespace  # 解析后的命令选项
+
+    encode_name_map: dict[str, str] = {"home": "_origin_home_path"}
+
+    def register_encode_name_map(self, param_name: str, attribute_name: str) -> None:
+        """将param_name->attribute_name的映射关系记录到类的encode_name_map表
+        注意：需要先给属性赋值，保证属性存在后再进行注册
+
+        Args:
+            param_name (str): 构造函数参数名
+            attribute_name (str): 成员属性名
+        """
+        cls = type(self)
+        assert (
+            param_name in inspect.signature(cls.__init__).parameters.keys()
+        ), f"The param {param_name} is not a parma of the __init__ function."
+        assert hasattr(self, attribute_name), f"The attribute {attribute_name} is not an attribute of self."
+        cls.encode_name_map[param_name] = attribute_name
+
+    def __init__(self, home: str = str(pathlib.Path.home()), base_path: pathlib.Path = pathlib.Path.cwd()) -> None:
+        """初始化配置基类
+
+        Args:
+            home (str, optional): 源码树根目录. 默认为当前用户主目录.
+            base_path (pathlib.Path, optional): 当home为相对路径时，转化home为绝对路径使用的基路径. 默认为当前工作目录.
+        """
+        self._origin_home_path = home
+        self.home = str((base_path / pathlib.Path(home)).resolve())
 
     @staticmethod
     def add_argument(parser: argparse.ArgumentParser) -> None:
@@ -393,7 +429,7 @@ class basic_configure:
             type=str,
             help="The home directory to find source trees. "
             "If home is a relative path, it will be converted to an absolute path relative to the cwd.",
-            default=str(pathlib.Path.home()),
+            default=basic_configure().home,
         )
         parser.add_argument(
             "--export",
@@ -417,6 +453,68 @@ class basic_configure:
             default=False,
         )
 
+    @staticmethod
+    def load_config(args: argparse.Namespace) -> dict[str, typing.Any]:
+        """从配置文件中加载配置
+
+        Args:
+            args (argparse.Namespace): 用户输入参数
+
+        Returns:
+            dict[str, typing.Any]: 解码得到的字典
+
+        Raises:
+            RuntimeError: 加载失败抛出异常
+        """
+        import_file: str | None = args.import_file
+        if import_file:
+            try:
+                with open(import_file) as file:
+                    import_config_list = json.load(file)
+                assert isinstance(import_config_list, dict), f"Invalid configure file. The configure file must begin with a object."
+            except Exception as e:
+                raise RuntimeError(f'Import file "{import_file}" failed: {e}')
+            import_config_list["base_path"] = pathlib.Path(import_file).parent
+            return import_config_list
+        else:
+            return {}
+
+    @classmethod
+    def decode(cls, input_list: dict[str, typing.Any]) -> Self:
+        """从字典input_list中解码出对象，供反序列化使用
+        根据basic_configure的构造函数参数列表得到参数名key，然后从input_list中获取key对应的value（若key不存在则跳过），最后使用关键参数key=value列表调用basic_configure的构造函数
+        然后对cls重复上述操作
+
+        Args:
+            input_list (dict[str, typing.Any]): 输入字典
+
+        Returns:
+            Self: 解码得到的对象
+        """
+        # 先处理子类，因为子类调用了基类的默认构造，会覆盖基类的成员
+        param_list = {}
+        for key in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
+            if key in input_list:
+                param_list[key] = input_list[key]
+        result: Self = cls(**param_list)
+
+        # 处理基类
+        param_list: dict[str, typing.Any] = {}
+        for key in itertools.islice(inspect.signature(basic_configure.__init__).parameters.keys(), 1, None):
+            if key in input_list:
+                param_list[key] = input_list[key]
+        basic_configure.__init__(result, **param_list)
+        return result
+
+    @classmethod
+    def _get_default_param_list(cls) -> dict[str, typing.Any]:
+        """获取类型构造函数的默认参数
+
+        Returns:
+            dict[str, typing.Any]: 默认参数列表
+        """
+        return {param.name: param.default for param in itertools.islice(inspect.signature(cls.__init__).parameters.values(), 1, None)}
+
     @classmethod
     def parse_args(cls, args: argparse.Namespace) -> Self:
         """解析命令选项并根据选项构造对象
@@ -430,45 +528,67 @@ class basic_configure:
         _check_home(args.home)
         command_dry_run.set(args.dry_run)
         args_list = vars(args)
-        parma_list: dict[str, typing.Any] = {}
-        for parma in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
-            assert parma != "home", "This function will set home. So home should not in the parma list of the __init__ function."
-            if parma in args_list:
-                parma_list[parma] = args_list[parma]
-        result = cls(**parma_list)
-        result._origin_home_path = args.home
-        result.home = str(pathlib.Path(args.home).absolute())  # 尝试转化为基于当前工作目录的绝对路径
+        input_list: dict[str, typing.Any] = {}
+        default_list: dict[str, typing.Any] = {
+            **basic_configure._get_default_param_list(),
+            **cls._get_default_param_list(),
+        }
+        for param in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
+            assert param != "home", "This function will set home. So home should not in the param list of the __init__ function."
+            if param in args_list:
+                input_list[param] = args_list[param]
+        input_list["home"] = args.home
+        input_list["base_path"] = pathlib.Path.cwd()
+
+        import_list: dict[str, typing.Any] = cls.load_config(args)
+        result_list: dict[str, typing.Any] = import_list
+        for key, value in input_list.items():
+            if value != default_list[key]:
+                result_list[key] = value
+        result = cls.decode(result_list)
+        result._args = args
         return result
+
+    def _map_value(self, cls: type) -> dict[str, typing.Any]:
+        """将构造函数参数列表中的参数名key通过encode_name_map映射为对象的属性名
+
+        Args:
+            cls (type): 获取构造函数用的类型
+
+        Returns:
+            dict[str, typing.Any]: 输出属性列表
+        """
+        output_list: dict[str, typing.Any] = {}
+        for key in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
+            mapped_key = self.encode_name_map.get(key, key)  # 进行参数名->属性名映射，映射失败则直接使用参数名
+            value = getattr(self, mapped_key, None)
+            match (value):
+                case None:
+                    # 若key不存在且未被映射过则跳过，是不需要序列化的中间参数
+                    # 若key不存在且映射过则说明映射表encode_name_map有误
+                    assert mapped_key == key, f"The encode_name_map maps the param {key} to a noexist attribute."
+                # 将集合转化为列表
+                case set():
+                    output_list[key] = list(value)
+                # 将pathlib.Path转化为字符串
+                case pathlib.Path():
+                    output_list[key] = str(value)
+                # 正常转化
+                case _:
+                    output_list[key] = value
+        return output_list
 
     def encode(self) -> dict[str, typing.Any]:
         """编码self到字典，可供序列化使用
-        使用_origin_home_path作为输出的home字段，不会输出私有字段
+        根据self的构造函数参数列表得到参数名key，然后通过encode_name_map将key转化为对象的属性名（若不在encode_name_map中则继续使用key），最后将属性序列化
 
         Returns:
             dict[str, typing.Any]: 编码后的字典
         """
-        config_list: dict[str, typing.Any] = {}
-        for key, value in vars(self).items():
-            match (key, value):
-                # 不序列化home
-                case ("home", _):
-                    pass
-                # 将_origin_home_path保存到home字段
-                case ("_origin_home_path", _):
-                    config_list["home"] = value
-                # 将pathlib.Path转化为字符串
-                case (_, pathlib.Path()):
-                    config_list[key] = str(value)
-                # 不序列化私有字段
-                case (_, _) if key.startswith("_"):
-                    pass
-                # 正常转化
-                case (_, _):
-                    config_list[key] = value
+        output_list: dict[str, typing.Any] = {**self._map_value(basic_configure), **self._map_value(type(self))}
+        return output_list
 
-        return config_list
-
-    def save_config(self, args: argparse.Namespace) -> None:
+    def save_config(self) -> None:
         """将配置保存到文件，使用json格式
 
         Args:
@@ -478,7 +598,7 @@ class basic_configure:
         Raises:
             RuntimeError: 保存失败抛出异常
         """
-        export_file: str | None = args.export_file
+        export_file: str | None = self._args.export_file
         if export_file:
             try:
                 with open(export_file, "w") as file:
@@ -486,51 +606,6 @@ class basic_configure:
                 print(f'[toolchains] Settings have been written to file "{export_file}"')
             except Exception as e:
                 raise RuntimeError(f'Export settings to file "{export_file}" failed: {e}')
-
-    def load_config(self, args: argparse.Namespace) -> None:
-        """从配置文件中加载配置，然后合并加载的配置和用户输入的配置
-
-        Args:
-            current_config (object): 当前用户输入的配置
-            args (argparse.Namespace): 用户输入参数
-
-        Raises:
-            RuntimeError: 加载失败抛出异常
-        """
-        import_file: str | None = args.import_file
-        if import_file:
-            try:
-                with open(import_file) as file:
-                    import_config_list = json.load(file)
-                assert isinstance(import_config_list, dict), f"Invalid configure file. The configure file must begin with a object."
-            except Exception as e:
-                raise RuntimeError(f'Import file "{import_file}" failed: {e}')
-
-            if home_path := import_config_list.get("home"):
-                home_path = pathlib.Path(home_path)
-                if not home_path.is_absolute():
-                    home_path = pathlib.Path(import_file).parent / home_path
-                import_config_list["home"] = str(home_path)
-            current_config_list = vars(self)
-            default_config_list = vars(type(self)())
-            self.__dict__ = {
-                # 若import_config中没有则使用default_config中的值，以便在配置类更新后原配置文件可以正确加载
-                key: (import_config_list.get(key, default_value) if (default_value := default_config_list.get(key)) == value else value)
-                for key, value in current_config_list.items()
-            }
-
-    def reset_list_if_empty(self, list_name: str, arg_name: str, args: argparse.Namespace) -> None:
-        """在用户输入指定列表类型选项，但没有指定表项时将该选项变为默认选项
-           用于允许用户清空从配置文件中加载的列表类型选项
-
-        Args:
-            list_name (str): 列表成员名称
-            arg_name (str): 用户输入对应参数的名称
-            args (argparse.Namespace): 用户输入参数
-        """
-        assert isinstance(getattr(self, list_name), list), f"The {list_name} must be a list."
-        if args.import_file and getattr(args, arg_name) == []:
-            setattr(self, list_name, getattr(type(self)(), list_name))
 
 
 assert __name__ != "__main__", "Import this file instead of running it directly."

@@ -54,6 +54,13 @@ strict = true
 pretty = true
 files = ["script/*.py", "script/.gdbinit", "toolchains/*.py"]
 
+[tool.pytest.ini_options]
+addopts = "-v --maxfail=3"
+testpaths = ["test"]
+python_files = "test_*.py"
+python_classes = "test*"
+python_functions = "test_*"
+
 [tool.sphinx-pyproject]
 build_dir = "docs/build"
 conf_dir = "docs/source"
@@ -86,6 +93,8 @@ poetry = "^2.0.0"
 black = "^24.10.0"
 isort = "^5.13.2"
 types-psutil = "^6.1.0.20241221"
+pytest = "^8.3.4"
+pytest-cov = "^6.0.0"
 sphinx = "^8.1.3"
 sphinx-rtd-theme = "^3.0.2"
 myst-parser = "^4.0.0"

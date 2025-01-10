@@ -53,6 +53,7 @@ def get_current_glib_version() -> str | None:
     Returns:
         (str | None): 当前平台glibc版本，获取失败返回None
     """
+    
     result = common.run_command("getconf GNU_LIBC_VERSION", ignore_error=True, capture=True, echo=False, dry_run=False)
     if result:
         return result.stdout.strip().split(" ", 1)[1]
@@ -97,6 +98,7 @@ class git_url:
             path (str): git包在托管平台下的路径
             default_protocol (str, optional): 非ssh模式下默认的网络协议. 默认为https.
         """
+        
         self.remote = remote
         self.path = path
         self.default_protocol = default_protocol
@@ -107,6 +109,7 @@ class git_url:
         Args:
             prefer_ssh (bool): 是否倾向于使用ssh
         """
+        
         use_ssh = prefer_ssh and self.remote == "github.com"
         return f"git@{self.remote}:{self.path}" if use_ssh else f"{self.default_protocol}://{self.remote}/{self.path}"
 
@@ -314,6 +317,7 @@ class all_lib_list:
         Returns:
             dict[str, git_url]: git包列表
         """
+        
         return typing.cast(dict[str, git_url], getattr(all_lib_list, f"git_lib_list_{config.git_remote}"))
 
 
@@ -324,9 +328,12 @@ class configure(common.basic_configure):
     clone_type: git_clone_type
     shallow_clone_depth: int
     git_use_ssh: bool
-    extra_lib_list: list[str]
+    extra_lib_list: set[str]
     network_try_times: int
     git_remote: git_prefer_remote
+
+    _origin_extra_lib_list: set[str]  # 用户输入的其他非git托管包列表
+    _origin_retry: int  # 用户输入的重试的次数
 
     def __init__(
         self,
@@ -349,13 +356,21 @@ class configure(common.basic_configure):
             retry (int, optional): 进行网络操作时重试的次数. 默认为5次.
             remote (str, optional): 倾向于使用的git源. 默认为GitHub源.
         """
+        
         self.glibc_version = glibc_version or get_current_glib_version()
         self.clone_type = git_clone_type[clone_type]
         self.shallow_clone_depth = depth
+        self.register_encode_name_map("depth", "shallow_clone_depth")
         self.git_use_ssh = ssh
-        self.extra_lib_list = [*all_lib_list.necessary_extra_lib_list, *(extra_libs or [])]
-        self.network_try_times = retry + 1
+        self.register_encode_name_map("ssh", "git_use_ssh")
+        self._origin_extra_lib_list = {*(extra_libs or [])}
+        self.register_encode_name_map("extra_libs", "_origin_extra_lib_list")
+        self.extra_lib_list = {*all_lib_list.necessary_extra_lib_list, *self._origin_extra_lib_list}
+        self._origin_retry = retry
+        self.register_encode_name_map("retry", "_origin_retry")
+        self.network_try_times = self._origin_retry + 1
         self.git_remote = git_prefer_remote[remote]
+        self.register_encode_name_map("remote", "git_remote")
 
     def check(self) -> None:
         """检查各个参数是否合法"""
