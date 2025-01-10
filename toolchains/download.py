@@ -309,11 +309,10 @@ def main() -> None:
 
     current_config = configure.parse_args(args)
     current_config.load_config(args)
-    current_config.reset_list_if_empty("extra_lib_list", "extra_libs", args)
 
     # 检查合并配置后环境是否正确
     current_config.check()
-    current_config.save_config(args)
+    current_config.save_config()
 
     match (args.command):
         case "update":

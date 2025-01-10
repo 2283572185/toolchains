@@ -265,9 +265,12 @@ class configure(common.basic_configure):
     clone_type: git_clone_type  # 是否使用部分克隆
     shallow_clone_depth: int  # 浅克隆深度
     git_use_ssh: bool  # 使用ssh克隆git托管的代码
-    extra_lib_list: list[str]  # 其他非git托管包
-    network_try_times: int  # 进行网络操作时重试的次数
+    extra_lib_list: set[str]  # 其他非git托管包
+    network_try_times: int  # 进行网络操作时尝试的次数
     git_remote: git_prefer_remote
+
+    _origin_extra_lib_list: set[str]  # 用户输入的其他非git托管包列表
+    _origin_retry: int  # 用户输入的重试的次数
 
     def __init__(
         self,
@@ -282,10 +285,17 @@ class configure(common.basic_configure):
         self.glibc_version = glibc_version
         self.clone_type = git_clone_type[clone_type]
         self.shallow_clone_depth = depth
+        self.register_encode_name_map("depth", "shallow_clone_depth")
         self.git_use_ssh = ssh
-        self.extra_lib_list = [*all_lib_list.necessary_extra_lib_list, *(extra_libs or [])]
-        self.network_try_times = retry + 1
+        self.register_encode_name_map("ssh", "git_use_ssh")
+        self._origin_extra_lib_list = {*(extra_libs or [])}
+        self.register_encode_name_map("extra_libs", "_origin_extra_lib_list")
+        self.extra_lib_list = {*all_lib_list.necessary_extra_lib_list, *self._origin_extra_lib_list}
+        self._origin_retry = retry
+        self.register_encode_name_map("retry", "_origin_retry")
+        self.network_try_times = self._origin_retry + 1
         self.git_remote = git_prefer_remote[remote]
+        self.register_encode_name_map("remote", "git_remote")
 
     def check(self) -> None:
         common._check_home(self.home)
