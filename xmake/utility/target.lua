@@ -1,5 +1,5 @@
 -- 占位符，无效果
-function noop_modifier(toolchain) return end
+function noop_modifier(_) return end
 
 -- 为loongnix定制部分flag
 function loongnix_modifier(toolchain)
@@ -42,10 +42,12 @@ target_list = table.join(general_target_list, clang_only_target_list)
 function get_clang_only_target_list()
     return clang_only_target_list
 end
+
 -- @brief 获取gcc和clang均支持的目标列表
 function get_general_target_list()
     return general_target_list
 end
+
 -- @brief 获取所有受支持的目标列表
 function get_target_list()
     return target_list

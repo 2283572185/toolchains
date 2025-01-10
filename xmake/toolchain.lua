@@ -5,35 +5,36 @@ includes("option.lua", "utility/target.lua")
 -- @param target 工具链目标
 -- @return string 描述文本
 function _get_toolchain_description(toolchain, target)
-    return format("A %s toolchain for ", toolchain) .. (target ~= "target" and target or "target detected by arch and plat")
+    return format("A %s toolchain for ", toolchain) ..
+        (target ~= "target" and target or "target detected by arch and plat")
 end
 
 -- @brief 注册clang工具链
--- @parma target clang工具链目标平台
--- @parma modifier 回调函数，为target定制一些flag
+-- @param target clang工具链目标平台
+-- @param modifier 回调函数，为target定制一些flag
 function register_clang_toolchain(target, modifier)
-    toolchain(target .. "-clang")
+    toolchain(target .. "-clang", function()
         set_kind("standalone")
         set_homepage("https://github.com/24bit-xjkp/toolchains/")
         set_description(_get_toolchain_description("clang", target))
         set_runtimes("c++_static", "c++_shared", "stdc++_static", "stdc++_shared")
 
-        set_toolset("cc",      "clang")
-        set_toolset("cxx",     "clang++", "clang")
-        set_toolset("ld",      "clang++", "clang")
-        set_toolset("sh",      "clang++", "clang")
-        set_toolset("as",      "clang")
-        set_toolset("ar",      "llvm-ar")
-        set_toolset("strip",   "llvm-strip")
-        set_toolset("ranlib",  "llvm-ranlib")
+        set_toolset("cc", "clang")
+        set_toolset("cxx", "clang++", "clang")
+        set_toolset("ld", "clang++", "clang")
+        set_toolset("sh", "clang++", "clang")
+        set_toolset("as", "clang")
+        set_toolset("ar", "llvm-ar")
+        set_toolset("strip", "llvm-strip")
+        set_toolset("ranlib", "llvm-ranlib")
         set_toolset("objcopy", "llvm-objcopy")
-        set_toolset("mrc",     "llvm-rc")
+        set_toolset("mrc", "llvm-rc")
 
-        on_check(function (toolchain)
+        on_check(function(_)
             return import("lib.detect.find_program")("clang")
         end)
 
-        on_load(function (toolchain)
+        on_load(function(toolchain)
             import("utility.utility")
             if toolchain:is_plat("windows") then
                 toolchain:add("runtimes", "MT", "MTd", "MD", "MDd")
@@ -58,7 +59,7 @@ function register_clang_toolchain(target, modifier)
 
             modifier(toolchain)
         end)
-    toolchain_end()
+    end)
 end
 
 for target, modifier in pairs(target_list) do
@@ -66,17 +67,17 @@ for target, modifier in pairs(target_list) do
 end
 
 -- @brief 注册gcc工具链
--- @parma target gcc工具链目标平台
--- @parma modifier 回调函数，为target定制一些flag
+-- @param target gcc工具链目标平台
+-- @param modifier 回调函数，为target定制一些flag
 function register_gcc_toolchain(target, modifier)
-    toolchain(target .. "-gcc")
+    toolchain(target .. "-gcc", function()
         set_kind("standalone")
         set_homepage("https://github.com/24bit-xjkp/toolchains/")
         set_description(_get_toolchain_description("gcc", target))
         set_runtimes("stdc++_static", "stdc++_shared")
         local prefix
 
-        on_check(function (toolchain)
+        on_check(function(_)
             if target == "target" then
                 target, modifier = import("utility.utility").get_target_modifier()
             end
@@ -84,17 +85,17 @@ function register_gcc_toolchain(target, modifier)
             return import("lib.detect.find_program")(prefix .. "gcc")
         end)
 
-        on_load(function (toolchain)
+        on_load(function(toolchain)
             prefix = target == "native" and "" or target .. "-"
-            toolchain:set("toolset", "cc",      prefix.."gcc")
-            toolchain:set("toolset", "cxx",     prefix.."g++", prefix.."gcc")
-            toolchain:set("toolset", "ld",      prefix.."g++", prefix.."gcc")
-            toolchain:set("toolset", "sh",      prefix.."g++", prefix.."gcc")
-            toolchain:set("toolset", "ar",      prefix.."ar")
-            toolchain:set("toolset", "strip",   prefix.."strip")
-            toolchain:set("toolset", "objcopy", prefix.."objcopy")
-            toolchain:set("toolset", "ranlib",  prefix.."ranlib")
-            toolchain:set("toolset", "as",      prefix.."gcc")
+            toolchain:set("toolset", "cc", prefix .. "gcc")
+            toolchain:set("toolset", "cxx", prefix .. "g++", prefix .. "gcc")
+            toolchain:set("toolset", "ld", prefix .. "g++", prefix .. "gcc")
+            toolchain:set("toolset", "sh", prefix .. "g++", prefix .. "gcc")
+            toolchain:set("toolset", "ar", prefix .. "ar")
+            toolchain:set("toolset", "strip", prefix .. "strip")
+            toolchain:set("toolset", "objcopy", prefix .. "objcopy")
+            toolchain:set("toolset", "ranlib", prefix .. "ranlib")
+            toolchain:set("toolset", "as", prefix .. "gcc")
 
             import("utility.utility")
             toolchain:add("cxflags", utility.get_march_option(target, "gcc"))
@@ -105,7 +106,7 @@ function register_gcc_toolchain(target, modifier)
 
             modifier(toolchain)
         end)
-    toolchain_end()
+    end)
 end
 
 for target, modifier in pairs(general_target_list) do
