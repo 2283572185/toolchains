@@ -161,7 +161,13 @@ function get_sysroot_option()
         assert(os.isdir(sysroot), string.format([[The sysroot "%s" is not a directory.]], sysroot))
     elseif detect then -- 尝试探测
         ---@type string | nil
-        local prefix = get_config("bin") or try { function() return os.iorunv("llvm-config", { "--prefix" }) end }
+        local prefix
+        if get_config("bin") then
+            prefix = path.join(string.trim(get_config("bin")), "..")
+        else
+            prefix = try { function() return os.iorunv("llvm-config", { "--prefix" }) end }
+            prefix = prefix and string.trim(prefix)
+        end
         if prefix then
             -- 尝试下列目录：1. prefix/sysroot 2. prefix/../sysroot 优先使用更局部的目录
             for _, v in ipairs({ "sysroot", "../sysroot" }) do
