@@ -1,7 +1,12 @@
--- 占位符，无效果
-function noop_modifier(toolchain) return end
+---@alias modifier_t fun(target:string):nil
+---@alias modifier_table_t table<string, modifier_t>
 
--- 为loongnix定制部分flag
+---占位符，无效果
+---@return nil
+function noop_modifier(_) return end
+
+---为loongnix定制部分flag
+---@return nil
 function loongnix_modifier(toolchain)
     -- loongnix的glibc版本较老，使用的ld路径与新编译器默认路径不同
     toolchain:add("ldflags", "-Wl,-dynamic-linker=/lib64/ld.so.1")
@@ -9,16 +14,19 @@ function loongnix_modifier(toolchain)
     toolchain:add("cxflags", "-gdwarf-4")
 end
 
--- 为独立工具链定值部分flag
+---为独立工具链定值部分flag
+---@return nil
 function freestanding_modifier(toolchain)
     -- freestanding需要禁用标准库
     toolchain:add("cxflags", "-ffreestanding", "-nostdlib")
     toolchain:add("ldflags", "-nostdlib")
 end
 
--- 只有clang支持的目标
+---只有clang支持的目标
+---@type modifier_table_t
 clang_only_target_list = { ["x86_64-windows-msvc"] = noop_modifier }
--- gcc和clang均支持的目标
+---gcc和clang均支持的目标
+---@type modifier_table_t
 general_target_list = {
     ["x86_64-linux-gnu"] = noop_modifier,
     ["i686-linux-gnu"] = noop_modifier,
@@ -35,18 +43,24 @@ general_target_list = {
     ["native"] = noop_modifier,
     ["target"] = noop_modifier
 }
--- 所有受支持的目标
+---所有受支持的目标
+---@type modifier_table_t
 target_list = table.join(general_target_list, clang_only_target_list)
 
--- @brief 获取只有clang支持的目标列表
+---获取只有clang支持的目标列表
+---@return modifier_table_t
 function get_clang_only_target_list()
     return clang_only_target_list
 end
--- @brief 获取gcc和clang均支持的目标列表
+
+---获取gcc和clang均支持的目标列表
+---@return modifier_table_t
 function get_general_target_list()
     return general_target_list
 end
--- @brief 获取所有受支持的目标列表
+
+---获取所有受支持的目标列表
+---@return modifier_table_t
 function get_target_list()
     return target_list
 end
