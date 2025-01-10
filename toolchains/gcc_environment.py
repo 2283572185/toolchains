@@ -67,6 +67,8 @@ def _get_specific_environment(self: "environment", host: str | None = None, targ
 
 
 class environment(common.basic_environment):
+    """gcc构建环境"""
+
     build: str  # build平台
     host: str  # host平台
     target: str  # target平台
@@ -387,7 +389,9 @@ def copy_pretty_printer(env: environment) -> None:
 
 
 class cross_environment:
-    env: environment  # gcc环境
+    """gcc交叉工具链配置环境"""
+
+    env: environment  # gcc构建环境
     host_os: str  # gcc环境的host操作系统
     target_os: str  # gcc环境的target操作系统
     target_arch: str  # gcc环境的target架构
@@ -412,7 +416,6 @@ class cross_environment:
         gdb: bool,
         gdbserver: bool,
         newlib: bool,
-        modifier: Callable[["cross_environment"], None] | None,
         home: str,
         jobs: int,
         prefix_dir: str,
@@ -426,7 +429,6 @@ class cross_environment:
             gdb (bool): 是否启用gdb
             gdbserver (bool): 是否启用gdbserver
             newlib (bool): 是否启用newlib, 仅对独立工具链有效
-            modifier (Callable[["cross_environment"], None], optional): 平台相关的修改器. 默认为None.
             home (str): 源代码树搜索主目录. 默认为$HOME.
             jobs (int): 并发构建数. 默认为cpu核心数*1.5再向下取整.
         """
@@ -503,10 +505,6 @@ class cross_environment:
         self.glibc_phony_stubs_path = os.path.join(self.env.lib_prefix, "include", "gnu", "stubs.h")
         # 由相关函数自动推动架构名
         self.adjust_glibc_arch = ""
-
-        # 允许调整配置选项
-        if modifier:
-            modifier(self)
 
     def _after_build_gcc(self) -> None:
         """在编译完gcc后完成收尾工作"""

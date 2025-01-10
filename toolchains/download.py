@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from . import common
+from . import common, download_source
 from .download_source import *
 
 
@@ -39,7 +39,7 @@ def download_gcc_contrib(config: configure) -> None:
     """下载gcc的依赖包
 
     Args:
-        config (environment): 源代码下载环境
+        config (configure): 源代码下载环境
     """
     _ = common.chdir_guard(os.path.join(config.home, "gcc"))
     common.run_command("contrib/download_prerequisites")
@@ -49,8 +49,8 @@ def download_specific_extra_lib(config: configure, lib: str) -> None:
     """下载指定的非git托管包
 
     Args:
-        config (environment): 源代码下载环境
-        lib (str): 要下载的包
+        config (configure): 源代码下载环境
+        lib (str): 要下载的包名
     """
     assert lib in all_lib_list.extra_lib_list, f"Unknown extra lib: {lib}"
     extra_lib_v = all_lib_list.extra_lib_list[lib]
@@ -62,7 +62,7 @@ def download(config: configure) -> None:
     """下载不存在的源代码，不会更新已有源代码
 
     Args:
-        config (environment): 源代码下载环境
+        config (configure): 源代码下载环境
     """
     # 下载git托管的源代码
     for lib, url_fields in all_lib_list.get_prefer_git_lib_list(config).items():
@@ -104,7 +104,7 @@ def update(config: configure) -> None:
     """更新所有源代码，要求所有包均已下载
 
     Args:
-        config (environment): 源代码下载环境
+        config (configure): 源代码下载环境
     """
     # 更新git托管的源代码
     for lib in all_lib_list.get_prefer_git_lib_list(config):
@@ -149,7 +149,7 @@ def auto_download(config: configure) -> None:
     """首先下载缺失的包，然后更新已有的包
 
     Args:
-        config (environment): 源代码下载环境
+        config (configure): 源代码下载环境
     """
     download(config)
     update(config)
@@ -227,19 +227,21 @@ def _check_input(args: argparse.Namespace) -> None:
 
 
 __all__ = [
+    *download_source.__all__,
     "download_gcc_contrib",
     "download_specific_extra_lib",
     "download",
     "update",
     "auto_download",
     "get_system_lib_list",
-    "configure",
     "remove_specific_lib",
     "remove",
 ]
 
 
 def main() -> None:
+    """cli主函数"""
+
     default_config = configure()
 
     parser = argparse.ArgumentParser(

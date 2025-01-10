@@ -14,7 +14,7 @@ class extra_lib_version(enum.StrEnum):
     gmp = "6.3.0"
     mpfr = "4.2.1"
 
-    @common._support_dry_run()
+    @common._support_dry_run(lambda self, dir: f"Save version of {self} -> {os.path.join(dir, ".version")}.")
     def save_version(self, dir: str) -> None:
         """将包版本信息保存到dir/.version文件中
 
@@ -51,8 +51,9 @@ def get_current_glib_version() -> str | None:
     """获取当前glibc版本
 
     Returns:
-        str | None: 当前平台glibc版本，获取失败返回None
+        (str | None): 当前平台glibc版本，获取失败返回None
     """
+    
     result = common.run_command("getconf GNU_LIBC_VERSION", ignore_error=True, capture=True, echo=False, dry_run=False)
     if result:
         return result.stdout.strip().split(" ", 1)[1]
@@ -61,7 +62,13 @@ def get_current_glib_version() -> str | None:
 
 
 class git_clone_type(enum.StrEnum):
-    """git克隆类型"""
+    """git克隆类型
+
+    Attributes:
+        partial: 使用部分克隆，仅克隆提交树，然后签出最新提交。在一些较老的git服务器上不受支持。
+        shallow: 使用浅克隆，仅克隆depth中指定数量的提交，可以加速克隆，但可能减慢git pull等操作。
+        full: 使用完全克隆，克隆完整的git仓库，消耗较多流量和时间。
+    """
 
     partial = "partial"  # 部分克隆
     shallow = "shallow"  # 浅克隆
@@ -79,11 +86,19 @@ class git_clone_type(enum.StrEnum):
 
 
 class git_url:
-    remote: str  # 托管平台
-    path: str  # git路径
-    default_protocol: str  # 非ssh下默认的网络协议
+    remote: str
+    path: str
+    default_protocol: str
 
     def __init__(self, remote: str, path: str, default_protocol: str = "https") -> None:
+        """配置一个git包的远程源
+
+        Args:
+            remote (str): 托管平台名称
+            path (str): git包在托管平台下的路径
+            default_protocol (str, optional): 非ssh模式下默认的网络协议. 默认为https.
+        """
+        
         self.remote = remote
         self.path = path
         self.default_protocol = default_protocol
@@ -94,12 +109,23 @@ class git_url:
         Args:
             prefer_ssh (bool): 是否倾向于使用ssh
         """
+        
         use_ssh = prefer_ssh and self.remote == "github.com"
         return f"git@{self.remote}:{self.path}" if use_ssh else f"{self.default_protocol}://{self.remote}/{self.path}"
 
 
 class git_prefer_remote(enum.StrEnum):
-    """git远程托管平台"""
+    """git远程托管平台
+
+    Attributes:
+        github: 使用GitHub上的仓库，部分为镜像源
+        native: 使用项目的原git仓库作为源
+        nju   : 在可能时使用南京大学镜像源，否则退回到使用GitHub源
+        tuna  : 在可能时使用清华大学镜像源，否则退回到使用GitHub源
+        bfsu  : 在可能时使用北京外国语大学镜像源，否则退回到使用GitHub源
+        nyist : 在可能时使用南阳理工学院镜像源，否则退回到使用GitHub源
+        cernet: 在可能时使用校园网联合镜像源，否则退回到使用GitHub源
+    """
 
     github = "github"
     native = "native"
@@ -111,11 +137,20 @@ class git_prefer_remote(enum.StrEnum):
 
 
 class extra_lib:
-    url_list: dict[str, str]  # 各个资源列表，dict[下载后文件名, url]
-    install_dir: list[str]  # 安装路径
-    version_dir: str  # 包含版本文件的目录
+    """非git包的配置"""
+
+    url_list: dict[str, str]
+    install_dir: list[str]
+    version_dir: str
 
     def __init__(self, url_list: dict[str, str], install_dir: list[str], version_dir: str) -> None:
+        """描述一个非git包的配置
+
+        Args:
+            url_list (dict[str, str]): 各个资源列表，dict[下载后文件名, url]
+            install_dir (list[str]): 安装路径
+            version_dir (str): 包含版本文件的目录
+        """
         self.url_list = url_list
         self.install_dir = install_dir
         self.version_dir = version_dir
@@ -134,6 +169,23 @@ class extra_lib:
 
 
 class all_lib_list:
+    """所有包源列表
+
+    Attributes:
+        system_lib_list    : 系统包表
+        git_lib_list_github: git包的GitHub源
+        git_lib_list_native: git包的原仓库源
+        git_lib_list_nju   : git包的南京大学镜像源
+        git_lib_list_tuna  : git包的清华大学镜像源
+        git_lib_list_bfsu  : git包的北京外国语大学镜像源
+        git_lib_list_nyist : git包的南阳理工学院镜像源
+        git_lib_list_cernet: git包的校园网联合镜像源
+        extra_lib_list     : 非git包的信息列表
+        necessary_extra_lib_list: 必须的非git包列表
+        optional_extra_lib_list : 可选的非git包列表
+        all_lib_list       : 所有受支持的包列表
+    """
+
     system_lib_list: typing.Final[list[str]] = [
         "bison",
         "flex",
@@ -251,22 +303,33 @@ class all_lib_list:
         "gmp": extra_lib({"gmp.tar.xz": f"https://gmplib.org/download/gmp/gmp-{extra_lib_version.gmp}.tar.xz"}, ["gmp"], "gmp"),
         "mpfr": extra_lib({"mpfr.tar.xz": f"https://www.mpfr.org/mpfr-current/mpfr-{extra_lib_version.mpfr}.tar.xz"}, ["mpfr"], "mpfr"),
     }
-    necessary_extra_lib_list: typing.Final[set[str]] = {"python-embed", "gmp", "mpfr"}  # 必须的非git托管包
-    optional_extra_lib_list: typing.Final[set[str]] = {lib for lib in extra_lib_list} - necessary_extra_lib_list  # 可选的非git托管包
-    all_lib_list: typing.Final[list[str]] = [*git_lib_list_github, *extra_lib_list, "gcc_contrib"]  # 所有受支持的包
+    necessary_extra_lib_list: typing.Final[set[str]] = {"python-embed", "gmp", "mpfr"}
+    optional_extra_lib_list: typing.Final[set[str]] = {lib for lib in extra_lib_list} - necessary_extra_lib_list
+    all_lib_list: typing.Final[list[str]] = [*git_lib_list_github, *extra_lib_list, "gcc_contrib"]
 
     @staticmethod
     def get_prefer_git_lib_list(config: "configure") -> dict[str, git_url]:
+        """根据配置选择使用合适git源的git包列表
+
+        Args:
+            config (configure): 当前下载配置
+
+        Returns:
+            dict[str, git_url]: git包列表
+        """
+        
         return typing.cast(dict[str, git_url], getattr(all_lib_list, f"git_lib_list_{config.git_remote}"))
 
 
 class configure(common.basic_configure):
-    glibc_version: str | None  # glibc版本号
-    clone_type: git_clone_type  # 是否使用部分克隆
-    shallow_clone_depth: int  # 浅克隆深度
-    git_use_ssh: bool  # 使用ssh克隆git托管的代码
-    extra_lib_list: set[str]  # 其他非git托管包
-    network_try_times: int  # 进行网络操作时尝试的次数
+    """源代码下载配置信息"""
+
+    glibc_version: str | None
+    clone_type: git_clone_type
+    shallow_clone_depth: int
+    git_use_ssh: bool
+    extra_lib_list: set[str]
+    network_try_times: int
     git_remote: git_prefer_remote
 
     _origin_extra_lib_list: set[str]  # 用户输入的其他非git托管包列表
@@ -274,7 +337,7 @@ class configure(common.basic_configure):
 
     def __init__(
         self,
-        glibc_version: str | None = get_current_glib_version(),
+        glibc_version: str | None = None,
         clone_type: str = git_clone_type.partial,
         depth: int = 1,
         ssh: bool = False,
@@ -282,7 +345,19 @@ class configure(common.basic_configure):
         retry: int = 5,
         remote: str = git_prefer_remote.github,
     ) -> None:
-        self.glibc_version = glibc_version
+        """设置源代码配置信息，可默认构造以提供默认配置
+
+        Args:
+            glibc_version (str | None, optional): glibc版本号. 默认为当前平台的glibc版本.
+            clone_type (str, optional): git克隆类型. 默认为部分克隆.
+            depth (int, optional): git浅克隆深度. 默认为1.
+            ssh (bool, optional): 是否使用ssh克隆GitHub上的git包. 默认为不用ssh，即使用https.
+            extra_libs (list[str] | None, optional): 额外的非git包列表. 默认不启用额外包.
+            retry (int, optional): 进行网络操作时重试的次数. 默认为5次.
+            remote (str, optional): 倾向于使用的git源. 默认为GitHub源.
+        """
+        
+        self.glibc_version = glibc_version or get_current_glib_version()
         self.clone_type = git_clone_type[clone_type]
         self.shallow_clone_depth = depth
         self.register_encode_name_map("depth", "shallow_clone_depth")
@@ -298,6 +373,8 @@ class configure(common.basic_configure):
         self.register_encode_name_map("remote", "git_remote")
 
     def check(self) -> None:
+        """检查各个参数是否合法"""
+
         common._check_home(self.home)
         assert self.glibc_version, f"Invalid glibc version: {self.glibc_version}"
         assert self.shallow_clone_depth > 0, f"Invalid shallow clone depth: {self.shallow_clone_depth}."
@@ -305,18 +382,38 @@ class configure(common.basic_configure):
 
 
 class after_download_list:
+    """在包下载完成后执行的回调函数"""
+
     @staticmethod
     def expat(config: configure) -> None:
+        """通过autoconf生成expat的configure文件
+
+        Args:
+            config (configure): 当前源代码下载配置
+        """
+
         _ = common.chdir_guard(os.path.join(config.home, "expat", "expat"))
         common.run_command("./buildconf.sh")
 
     @staticmethod
     def pexports(config: configure) -> None:
+        """通过autoconf生成pexports的configure文件
+
+        Args:
+            config (configure): 当前源代码下载配置
+        """
+
         _ = common.chdir_guard(os.path.join(config.home, "pexports"))
         common.run_command("autoreconf -if")
 
     @staticmethod
     def python_embed(config: configure) -> None:
+        """解压python embed package和python源代码，提取出dll和include文件，并合并到python-embed文件夹中
+
+        Args:
+            config (configure): 当前源代码下载配置
+        """
+
         python_version = extra_lib_version.python
         python_embed_zip = os.path.join(config.home, "python-embed.zip")
         python_source_txz = os.path.join(config.home, "python_source.tar.xz")
@@ -344,6 +441,12 @@ class after_download_list:
 
     @staticmethod
     def loongnix(config: configure) -> None:
+        """解压loongnix的linux和glibc源代码到linux-loongnix和glibc-loongnix文件夹下
+
+        Args:
+            config (configure): 当前源代码下载配置
+        """
+
         linux_tgz = os.path.join(config.home, "linux-loongnix.tar.gz")
         glibc_tgz = os.path.join(config.home, "glibc-loongnix.tar.gz")
         linux_dir = os.path.join(config.home, "linux-loongnix")
@@ -363,6 +466,12 @@ class after_download_list:
 
     @staticmethod
     def iconv(config: configure) -> None:
+        """解压iconv包到gdb目录下
+
+        Args:
+            config (configure): 当前源代码下载配置
+        """
+
         iconv_version = extra_lib_version.iconv
         gdb_dir = os.path.join(config.home, "binutils", "gdb")
         iconv_tgz = os.path.join(config.home, "iconv.tar.gz")
@@ -376,6 +485,12 @@ class after_download_list:
 
     @staticmethod
     def gmp(config: configure) -> None:
+        """解压gmp到home下
+
+        Args:
+            config (configure): 当前源代码下载配置
+        """
+
         gmp_version = extra_lib_version.gmp
         gmp_dir = os.path.join(config.home, "gmp")
         gmp_txz = os.path.join(config.home, "gmp.tar.xz")
@@ -388,6 +503,12 @@ class after_download_list:
 
     @staticmethod
     def mpfr(config: configure) -> None:
+        """解压mpfr到home下
+
+        Args:
+            config (configure): 当前源代码下载配置
+        """
+
         mpfr_version = extra_lib_version.mpfr
         mpfr_dir = os.path.join(config.home, "mpfr")
         mpfr_txz = os.path.join(config.home, "mpfr.tar.xz")
@@ -400,18 +521,41 @@ class after_download_list:
 
     @staticmethod
     def after_download_specific_lib(config: configure, lib: str) -> None:
+        """根据包名执行对应的回调函数
+
+        Args:
+            config (configure): 当前源代码下载配置
+            lib (str): 下载好的包名
+        """
+
         lib = lib.replace("-", "_")
         if lib in vars(after_download_list) and not common.command_dry_run.get():
             getattr(after_download_list, lib)(config)
 
 
 class extra_git_options_list:
+    """克隆git包时要使用的额外git选项表"""
+
     @staticmethod
     def glibc(config: configure) -> list[str]:
+        """获取glibc的额外克隆选项，需要设置指定的分支
+
+        Args:
+            config (configure): 当前源代码下载配置
+        """
         return [f"-b release/{config.glibc_version}/master"]
 
     @staticmethod
     def get_option(config: configure, lib: str) -> list[str]:
+        """根据要克隆的git包名获取额外选项
+
+        Args:
+            config (configure): 当前源代码下载配置
+            lib (str): git包名
+
+        Returns:
+            list[str]: 额外选项表
+        """
         if lib in vars(extra_git_options_list) and not common.command_dry_run.get():
             return typing.cast(list[str], getattr(extra_git_options_list, lib)(config))
         return []

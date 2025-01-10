@@ -1,9 +1,7 @@
 import argparse
-from collections.abc import Callable
 
-from . import common
+from . import build_gcc_source, common
 from .build_gcc_source import *
-from .gcc_environment import cross_environment as environment
 
 
 def check_triplet(host: str, target: str) -> None:
@@ -35,7 +33,6 @@ def build_specific_gcc(
     config: configure,
     host: str,
     target: str,
-    modifier: None | Callable[[environment], None],
 ) -> None:
     """构建gcc工具链
 
@@ -43,11 +40,11 @@ def build_specific_gcc(
         config (configure): 编译环境
         host (str): 宿主平台
         target (str): 目标平台
-        modifier (Callable[[cross], None], optional): 平台相关的修改器. 默认为None.
     """
     config_list = vars(config)
     del config_list["_origin_home_path"]
-    env = environment(host=host, target=target, modifier=modifier, **config_list)
+    env = environment(host=host, target=target, **config_list)
+    modifier_list.modify(env, target)
     env.build()
 
 
@@ -60,6 +57,9 @@ def dump_support_platform() -> None:
     print("Target support:")
     for target in support_platform_list.target_list:
         print(f"\t{target}")
+
+
+__all__ = [*build_gcc_source.__all__, "check_triplet", "build_specific_gcc", "dump_support_platform"]
 
 
 def main() -> None:
@@ -105,6 +105,6 @@ def main() -> None:
     if args.dump:
         dump_support_platform()
     else:
-        build_specific_gcc(current_config, args.host, args.target, modifier_list.get_modifier(args.target))
+        build_specific_gcc(current_config, args.host, args.target)
 
     current_config.save_config(args)

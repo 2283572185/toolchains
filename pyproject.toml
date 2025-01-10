@@ -61,6 +61,31 @@ python_files = "test_*.py"
 python_classes = "test*"
 python_functions = "test_*"
 
+[tool.sphinx-pyproject]
+build_dir = "docs/build"
+conf_dir = "docs/source"
+extensions = ["sphinx.ext.autodoc", "sphinx.ext.napoleon", "sphinx.ext.viewcode", "sphinx_rtd_theme", "myst_parser"]
+html_theme = "sphinx_rtd_theme"
+html_theme_options = { "collapse_navigation" = true, "sticky_navigation" = true, "navigation_depth" = 4, "titles_only" = false }
+package_root = "toolchains"
+language = "zh_CN"
+
+[tool.sphinx-pyproject.latex_elements]
+makeindex = '\usepackage[columns=1]{idxlayout}\makeindex'
+papersize = "a4paper"
+pointsize = "10pt"
+latex_engine = "xelatex"
+preamble = '''
+\usepackage[UTF8, scheme = plain]{ctex}
+\usepackage{ctex}
+
+\addto\captionsenglish{\renewcommand{\chaptername}{}}
+\parindent 2em
+\setcounter{tocdepth}{3}
+\setCJKmainfont[BoldFont=SimHei]{SimSun}
+\setmainfont[Scale=0.95]{Fira Sans}
+'''
+
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.14.1"
 mypy-extensions = "^1.0.0"
@@ -70,3 +95,7 @@ isort = "^5.13.2"
 types-psutil = "^6.1.0.20241221"
 pytest = "^8.3.4"
 pytest-cov = "^6.0.0"
+sphinx = "^8.1.3"
+sphinx-rtd-theme = "^3.0.2"
+myst-parser = "^4.0.0"
+sphinx-pyproject = "^0.3.0"
