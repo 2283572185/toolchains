@@ -1,17 +1,18 @@
 includes("option.lua", "utility/target.lua")
 
--- @brief 获取工具链描述文本
--- @param toolchain 工具链名称
--- @param target 工具链目标
--- @return string 描述文本
+---获取工具链描述文本
+---@param toolchain string --工具链名称
+---@param target string --工具链目标
+---@return string --描述文本
 function _get_toolchain_description(toolchain, target)
     return format("A %s toolchain for ", toolchain) ..
         (target ~= "target" and target or "target detected by arch and plat")
 end
 
--- @brief 注册clang工具链
--- @param target clang工具链目标平台
--- @param modifier 回调函数，为target定制一些flag
+---注册clang工具链
+---@param target string --clang工具链目标平台
+---@param modifier modifier_t --回调函数，为target定制一些flag
+---@return nil
 function register_clang_toolchain(target, modifier)
     toolchain(target .. "-clang", function()
         set_kind("standalone")
@@ -66,9 +67,10 @@ for target, modifier in pairs(target_list) do
     register_clang_toolchain(target, modifier)
 end
 
--- @brief 注册gcc工具链
--- @param target gcc工具链目标平台
--- @param modifier 回调函数，为target定制一些flag
+---注册gcc工具链
+---@param target string --gcc工具链目标平台
+---@param modifier modifier_t --回调函数，为target定制一些flag
+---@return nil
 function register_gcc_toolchain(target, modifier)
     toolchain(target .. "-gcc", function()
         set_kind("standalone")

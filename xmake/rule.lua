@@ -1,8 +1,10 @@
 includes("option.lua")
+---@type string | nil
 local debug_strip = get_config("debug_strip")
 if debug_strip == "no" then -- 不剥离符号
     debug_strip = nil
 end
+---@type boolean
 local enable_lto = get_config("enable_lto")
 
 rule("debug", function()
@@ -42,5 +44,6 @@ rule("releasedbg", function()
 end)
 
 
--- 受支持的规则表
+---受支持的规则表
+---@type string[]
 support_rules_table = { "debug", "release", "minsizerel", "releasedbg" }
