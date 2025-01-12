@@ -65,12 +65,12 @@ def _support_dry_run[**P, R](echo_fn: Callable[..., str | None] | None = None) -
 
 @_support_dry_run(lambda command, echo: f"[toolchains] Run command: {command}" if echo else None)
 def run_command(
-    command: str, ignore_error: bool = False, capture: bool = False, echo: bool = True, dry_run: bool | None = None
+    command: str | list[str], ignore_error: bool = False, capture: bool = False, echo: bool = True, dry_run: bool | None = None
 ) -> subprocess.CompletedProcess[str] | None:
     """运行指定命令, 若不忽略错误, 则在命令执行出错时抛出RuntimeError, 反之打印错误码
 
     Args:
-        command (str): 要运行的命令
+        command (str | list[str]): 要运行的命令，使用str则在shell内运行，使用list[str]则直接运行
         ignore_error (bool, optional): 是否忽略错误. 默认不忽略错误.
         capture (bool, optional): 是否捕获命令输出，默认为不捕获.
         echo (bool, optional): 是否回显信息，设置为False将不回显任何信息，包括错误提示，默认为回显.
@@ -90,7 +90,14 @@ def run_command(
     else:
         pipe = subprocess.DEVNULL  # 不回显又不捕获输出则丢弃输出
     try:
-        result = subprocess.run(command, stdout=pipe, stderr=pipe, shell=True, check=True, text=True)
+        result = subprocess.run(
+            command if isinstance(command, str) else " ".join(command),
+            stdout=pipe,
+            stderr=pipe,
+            shell=isinstance(command, str),
+            check=True,
+            text=True,
+        )
     except subprocess.CalledProcessError as e:
         if not ignore_error:
             raise RuntimeError(f'Command "{command}" failed.')
@@ -101,11 +108,11 @@ def run_command(
 
 
 @_support_dry_run(lambda path: f"[toolchains] Create directory {path}.")
-def mkdir(path: str, remove_if_exist: bool = True, dry_run: bool | None = None) -> None:
+def mkdir(path: pathlib.Path, remove_if_exist: bool = True, dry_run: bool | None = None) -> None:
     """创建目录
 
     Args:
-        path (str): 要创建的目录
+        path (pathlib.Path): 要创建的目录
         remove_if_exist (bool, optional): 是否先删除已存在的同名目录. 默认先删除已存在的同名目录.
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
@@ -115,132 +122,133 @@ def mkdir(path: str, remove_if_exist: bool = True, dry_run: bool | None = None) 
 
 
 @_support_dry_run(lambda src, dst: f"[toolchains] Copy {src} -> {dst}.")
-def copy(src: str, dst: str, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
+def copy(src: pathlib.Path, dst: pathlib.Path, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
     """复制文件或目录
 
     Args:-> Callable[[Callable[P, R]], functools._Wrapped[P, R, P, R | None]]
-        src (str): 源路径
-        dst (str): 目标路径
+        src (pathlib.Path): 源路径
+        dst (pathlib.Path): 目标路径
         overwrite (bool, optional): 是否覆盖已存在项. 默认为覆盖.
         follow_symlinks (bool, optional): 是否复制软链接指向的目标，而不是软链接本身. 默认为保留软链接.
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
     # 创建目标目录
-    dir = os.path.dirname(dst)
-    if dir != "":
-        mkdir(dir, False)
-    if not overwrite and os.path.exists(dst):
+    dir = dst.parent
+    mkdir(dir, False)
+    if not overwrite and dst.exists():
         return
     if os.path.isdir(src):
-        if os.path.exists(dst):
+        if dst.exists():
             shutil.rmtree(dst)
         shutil.copytree(src, dst, not follow_symlinks)
     else:
-        if os.path.exists(dst):
+        if dst.exists():
             os.remove(dst)
         shutil.copyfile(src, dst, follow_symlinks=follow_symlinks)
 
 
 @_support_dry_run(lambda src, dst: f"[toolchains] Copy {src} -> {dst} if src exists.")
-def copy_if_exist(src: str, dst: str, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
+def copy_if_exist(
+    src: pathlib.Path, dst: pathlib.Path, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None
+) -> None:
     """如果文件或目录存在则复制文件或目录
 
     Args:
-        src (str): 源路径
-        dst (str): 目标路径
+        src (pathlib.Path): 源路径
+        dst (pathlib.Path): 目标路径
         overwrite (bool, optional): 是否覆盖已存在项. 默认为覆盖.
         follow_symlinks (bool, optional): 是否复制软链接指向的目标，而不是软链接本身. 默认为保留软链接.
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
-    if os.path.exists(src):
+    if src.exists():
         copy(src, dst, overwrite, follow_symlinks)
 
 
 @_support_dry_run(lambda path: f"[toolchains] Remove {path}.")
-def remove(path: str, dry_run: bool | None = None) -> None:
+def remove(path: pathlib.Path, dry_run: bool | None = None) -> None:
     """删除指定路径
 
     Args:
-        path (str): 要删除的路径
+        path (pathlib.Path): 要删除的路径
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
-    if os.path.isdir(path):
+    if path.is_dir():
         shutil.rmtree(path)
     else:
         os.remove(path)
 
 
 @_support_dry_run(lambda path: f"[toolchains] Remove {path} if path exists.")
-def remove_if_exists(path: str, dry_run: bool | None = None) -> None:
+def remove_if_exists(path: pathlib.Path, dry_run: bool | None = None) -> None:
     """如果指定路径存在则删除指定路径
 
     Args:
-        path (str): 要删除的路径
+        path (pathlib.Path): 要删除的路径
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
-    if os.path.exists(path):
+    if path.exists():
         remove(path)
 
 
 @_support_dry_run(lambda path: f"[toolchains] Enter directory {path}.")
-def chdir(path: str, dry_run: bool | None = None) -> str:
+def chdir(path: pathlib.Path, dry_run: bool | None = None) -> pathlib.Path:
     """将工作目录设置为指定路径
 
     Args:
-        path (str): 要进入的路径
+        path (pathlib.Path): 要进入的路径
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
 
     Returns:
-        str: 之前的工作目录
+        pathlib.Path: 之前的工作目录
     """
-    cwd = os.getcwd()
+    cwd = pathlib.Path.cwd()
     os.chdir(path)
     return cwd
 
 
 @_support_dry_run(lambda src, dst: f"[toolchains] Rename {src} -> {dst}.")
-def rename(src: str, dst: str, dry_run: bool | None = None) -> None:
+def rename(src: pathlib.Path, dst: pathlib.Path, dry_run: bool | None = None) -> None:
     """重命名指定路径
 
     Args:
-        src (str): 源路径
-        dst (str): 目标路径
+        src (pathlib.Path): 源路径
+        dst (pathlib.Path): 目标路径
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
-    os.rename(src, dst)
+    src.rename(dst)
 
 
 class chdir_guard:
     """在构造时进入指定工作目录并在析构时回到原工作目录"""
 
-    cwd: str
+    cwd: pathlib.Path
     dry_run: bool | None
 
-    def __init__(self, path: str, dry_run: bool | None = None) -> None:
+    def __init__(self, path: pathlib.Path, dry_run: bool | None = None) -> None:
         self.dry_run = dry_run
-        self.cwd = chdir(path, dry_run) or ""
+        self.cwd = chdir(path, dry_run) or pathlib.Path()
 
     def __del__(self) -> None:
         chdir(self.cwd, self.dry_run)
 
 
-def check_lib_dir(lib: str, lib_dir: str, do_assert: bool = True) -> bool:
+def check_lib_dir(lib: str, lib_dir: pathlib.Path, do_assert: bool = True) -> bool:
     """检查库目录是否存在
 
     Args:
         lib (str): 库名称，用于提供错误报告信息
-        lib_dir (str): 库目录
+        lib_dir (pathlib.Path): 库目录
         do_assert (bool, optional): 是否断言库存在. 默认断言.
 
     Returns:
         bool: 返回库是否存在
     """
     message = f'[toolchains] Cannot find lib "{lib}" in directory "{lib_dir}"'
-    if not do_assert and not os.path.exists(lib_dir):
+    if not do_assert and not lib_dir.exists():
         print(message)
         return False
     else:
-        assert os.path.exists(lib_dir), message
+        assert lib_dir.exists(), message
     return True
 
 
@@ -250,15 +258,17 @@ class basic_environment:
     build: str  # build平台
     version: str  # 版本号
     major_version: str  # 主版本号
-    home: str  # 源代码所在的目录
+    home: pathlib.Path  # 源代码所在的目录
     jobs: int  # 编译所用线程数
-    current_dir: str  # toolchains项目所在目录
+    current_dir: pathlib.Path  # toolchains项目所在目录
     name_without_version: str  # 不带版本号的工具链名
     name: str  # 工具链名
-    prefix_dir: str  # 安装路径
-    bin_dir: str  # 安装后可执行文件所在目录
+    prefix_dir: pathlib.Path  # 安装路径
+    bin_dir: pathlib.Path  # 安装后可执行文件所在目录
 
-    def __init__(self, build: str, version: str, name_without_version: str, home: str, jobs: int, prefix_dir: str) -> None:
+    def __init__(
+        self, build: str, version: str, name_without_version: str, home: pathlib.Path, jobs: int, prefix_dir: pathlib.Path
+    ) -> None:
         self.build = build
         self.version = version
         self.major_version = self.version.split(".")[0]
@@ -266,9 +276,9 @@ class basic_environment:
         self.name = self.name_without_version + self.major_version
         self.home = home
         self.jobs = jobs
-        self.current_dir = os.path.abspath(os.path.dirname(__file__))
+        self.current_dir = pathlib.Path(__file__).parent.resolve()
         self.prefix_dir = prefix_dir
-        self.bin_dir = os.path.join(prefix_dir, self.name, "bin")
+        self.bin_dir = prefix_dir / self.name / "bin"
 
     def compress(self, name: str | None = None) -> None:
         """压缩构建完成的工具链
@@ -276,7 +286,7 @@ class basic_environment:
         Args:
             name (str, optional): 要压缩的目标名称，是相对于self.home的路径. 默认为self.name.
         """
-        os.chdir(self.home)
+        _ = chdir_guard(self.home)
         name = name or self.name
         run_command(f"tar -cf {name}.tar {name}")
         memory_MB = psutil.virtual_memory().available // 1048576 + 3072
@@ -284,17 +294,17 @@ class basic_environment:
 
     def register_in_env(self) -> None:
         """注册安装路径到环境变量"""
-        os.environ["PATH"] = f"{self.bin_dir}:{os.environ['PATH']}"
+        os.environ["PATH"] = f"{self.bin_dir}{os.pathsep}{os.environ['PATH']}"
 
     def register_in_bashrc(self) -> None:
         """注册安装路径到用户配置文件"""
-        with open(os.path.join(self.home, ".bashrc"), "a") as bashrc_file:
+        with (self.home / ".bashrc").open("a") as bashrc_file:
             bashrc_file.write(f"export PATH={self.bin_dir}:$PATH\n")
 
     def copy_readme(self) -> None:
         """复制工具链说明文件"""
-        readme_path = os.path.join(self.current_dir, "..", "readme", f"{self.name_without_version}.md")
-        target_path = os.path.join(os.path.join(self.home, self.name), "README.md")
+        readme_path = self.current_dir.parent / "readme" / f"{self.name_without_version}.md"
+        target_path = self.home / self.name / "README.md"
         copy(readme_path, target_path)
 
 
@@ -375,8 +385,8 @@ class triplet_field:
         return f"{self.arch}-{self.os}-{self.abi}"
 
 
-def _check_home(home: str) -> None:
-    assert os.path.exists(home), f'The home dir "{home}" does not exist.'
+def _check_home(home: str | pathlib.Path) -> None:
+    assert pathlib.Path(home).exists(), f'The home dir "{home}" does not exist.'
 
 
 class basic_configure:
@@ -386,7 +396,7 @@ class basic_configure:
         encode_name_map: 编码时使用的构造函数参数名->成员名映射表
     """
 
-    home: str
+    home: pathlib.Path
     _origin_home_path: str
     _args: argparse.Namespace  # 解析后的命令选项
 
@@ -411,11 +421,11 @@ class basic_configure:
         """初始化配置基类
 
         Args:
-            home (str, optional): 源码树根目录. 默认为当前用户主目录.
+            home (pathlib.Path, optional): 源码树根目录. 默认为当前用户主目录.
             base_path (pathlib.Path, optional): 当home为相对路径时，转化home为绝对路径使用的基路径. 默认为当前工作目录.
         """
         self._origin_home_path = home
-        self.home = str((base_path / pathlib.Path(home)).resolve())
+        self.home = (base_path / home).resolve()
 
     @staticmethod
     def add_argument(parser: argparse.ArgumentParser) -> None:
@@ -429,7 +439,7 @@ class basic_configure:
             type=str,
             help="The home directory to find source trees. "
             "If home is a relative path, it will be converted to an absolute path relative to the cwd.",
-            default=basic_configure().home,
+            default=str(basic_configure().home),
         )
         parser.add_argument(
             "--export",
@@ -466,15 +476,14 @@ class basic_configure:
         Raises:
             RuntimeError: 加载失败抛出异常
         """
-        import_file: str | None = args.import_file
-        if import_file:
+        if import_file := args.import_file:
+            file_path = pathlib.Path(import_file)
             try:
-                with open(import_file) as file:
-                    import_config_list = json.load(file)
+                import_config_list = json.loads(file_path.read_text())
                 assert isinstance(import_config_list, dict), f"Invalid configure file. The configure file must begin with a object."
             except Exception as e:
-                raise RuntimeError(f'Import file "{import_file}" failed: {e}')
-            import_config_list["base_path"] = pathlib.Path(import_file).parent
+                raise RuntimeError(f'Import file "{file_path}" failed: {e}')
+            import_config_list["base_path"] = file_path.parent
             return import_config_list
         else:
             return {}
@@ -492,14 +501,14 @@ class basic_configure:
             Self: 解码得到的对象
         """
         # 先处理子类，因为子类调用了基类的默认构造，会覆盖基类的成员
-        param_list = {}
+        param_list: dict[str, typing.Any] = {}
         for key in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
             if key in input_list:
                 param_list[key] = input_list[key]
         result: Self = cls(**param_list)
 
         # 处理基类
-        param_list: dict[str, typing.Any] = {}
+        param_list = {}
         for key in itertools.islice(inspect.signature(basic_configure.__init__).parameters.keys(), 1, None):
             if key in input_list:
                 param_list[key] = input_list[key]
@@ -549,7 +558,7 @@ class basic_configure:
         result._args = args
         return result
 
-    def _map_value(self, cls: type) -> dict[str, typing.Any]:
+    def _map_value(self, cls: type[Self | "basic_configure"]) -> dict[str, typing.Any]:
         """将构造函数参数列表中的参数名key通过encode_name_map映射为对象的属性名
 
         Args:
@@ -588,6 +597,7 @@ class basic_configure:
         output_list: dict[str, typing.Any] = {**self._map_value(basic_configure), **self._map_value(type(self))}
         return output_list
 
+    @_support_dry_run(lambda self: f"[toolchains] Save settings -> {file}." if (file := self._args.export_file) else None)
     def save_config(self) -> None:
         """将配置保存到文件，使用json格式
 
@@ -598,14 +608,12 @@ class basic_configure:
         Raises:
             RuntimeError: 保存失败抛出异常
         """
-        export_file: str | None = self._args.export_file
-        if export_file:
+        if export_file := self._args.export_file:
+            file_path = pathlib.Path(export_file)
             try:
-                with open(export_file, "w") as file:
-                    json.dump(self.encode(), file, indent=4)
-                print(f'[toolchains] Settings have been written to file "{export_file}"')
+                file_path.write_text(json.dumps(self.encode(), indent=4))
             except Exception as e:
-                raise RuntimeError(f'Export settings to file "{export_file}" failed: {e}')
+                raise RuntimeError(f'Export settings to file "{file_path}" failed: {e}')
 
 
 assert __name__ != "__main__", "Import this file instead of running it directly."
