@@ -1,4 +1,5 @@
 import argparse
+import enum
 import functools
 import inspect
 import itertools
@@ -11,7 +12,39 @@ import typing
 from collections.abc import Callable
 from typing import Self
 
+import colorama
 import psutil
+
+
+class _color(enum.StrEnum):
+    """cli使用的颜色
+
+    Attributes:
+        warning: 警告用色
+        error  : 错误用色
+        success: 成功用色
+        note   : 提示用色
+        reset  : 恢复默认配色
+        toolchains: 输出toolchains标志
+    """
+
+    warning = colorama.Fore.MAGENTA
+    error = colorama.Fore.RED
+    success = colorama.Fore.GREEN
+    note = colorama.Fore.LIGHTBLUE_EX
+    reset = colorama.Fore.RESET
+    toolchains = f"{note}[toolchains]{reset}"
+
+    def wrapper(self, string: str) -> str:
+        """以指定颜色输出string，然后恢复默认配色
+
+        Args:
+            string (str): 要输出的字符串
+
+        Returns:
+            str: 输出字符串
+        """
+        return f"{self}{string}{_color.reset}"
 
 
 class command_dry_run:
@@ -28,11 +61,15 @@ class command_dry_run:
         cls._dry_run = dry_run
 
 
-def _support_dry_run[**P, R](echo_fn: Callable[..., str | None] | None = None) -> Callable[[Callable[P, R]], Callable[P, R | None]]:
+def _support_dry_run[
+    **P, R
+](echo_fn: Callable[..., str | None] | None = None, end: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R | None]]:
     """根据dry_run参数和command_dry_run中的全局状态确定是否只回显命令而不执行，若fn没有dry_run参数则只会使用全局状态
 
     Args:
-        echo_fn (Callable[..., str | None] | None, optional): 回调函数，返回要显示的命令字符串或None，无回调或返回None时不显示命令，所有参数需要能在主函数的参数列表中找到，默认为无回调.
+        echo_fn (Callable[..., str | None] | None, optional): 回调函数，返回要显示的命令字符串或None，无回调或返回None时不显示命令
+            所有参数需要能在主函数的参数列表中找到，默认为无回调.
+        end (str | None, optional): 在输出回显内容后使用的换行符，默认为换行.
     """
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R | None]:
@@ -51,7 +88,7 @@ def _support_dry_run[**P, R](echo_fn: Callable[..., str | None] | None = None) -
                     param_list.append(bound_args.arguments[key])
                 echo = echo_fn(*param_list)
                 if echo is not None:
-                    print(echo)
+                    print(echo, end=end)
             dry_run: bool | None = bound_args.arguments.get("dry_run")
             assert isinstance(dry_run, bool | None), f"The param dry_run must be a bool or None."
             if dry_run is None and command_dry_run.get() or dry_run:
@@ -63,7 +100,7 @@ def _support_dry_run[**P, R](echo_fn: Callable[..., str | None] | None = None) -
     return decorator
 
 
-@_support_dry_run(lambda command, echo: f"[toolchains] Run command: {command}" if echo else None)
+@_support_dry_run(lambda command, echo: f"{_color.toolchains} Run command: {command}" if echo else None)
 def run_command(
     command: str | list[str], ignore_error: bool = False, capture: bool = False, echo: bool = True, dry_run: bool | None = None
 ) -> subprocess.CompletedProcess[str] | None:
@@ -100,14 +137,16 @@ def run_command(
         )
     except subprocess.CalledProcessError as e:
         if not ignore_error:
-            raise RuntimeError(f'Command "{command}" failed.')
+            raise RuntimeError(_color.error.wrapper(f'Command "{command}" failed.'))
         elif echo:
-            print(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.')
+            print(
+                f"{_color.toolchains} {_color.warning.wrapper(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.')}"
+            )
         return None
     return result
 
 
-@_support_dry_run(lambda path: f"[toolchains] Create directory {path}.")
+@_support_dry_run(lambda path: f"{_color.toolchains} Create directory {path}.")
 def mkdir(path: pathlib.Path, remove_if_exist: bool = True, dry_run: bool | None = None) -> None:
     """创建目录
 
@@ -121,7 +160,7 @@ def mkdir(path: pathlib.Path, remove_if_exist: bool = True, dry_run: bool | None
     os.makedirs(path, exist_ok=True)
 
 
-@_support_dry_run(lambda src, dst: f"[toolchains] Copy {src} -> {dst}.")
+@_support_dry_run(lambda src, dst: f"{_color.toolchains} Copy {src} -> {dst}.")
 def copy(src: pathlib.Path, dst: pathlib.Path, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
     """复制文件或目录
 
@@ -147,7 +186,7 @@ def copy(src: pathlib.Path, dst: pathlib.Path, overwrite: bool = True, follow_sy
         shutil.copyfile(src, dst, follow_symlinks=follow_symlinks)
 
 
-@_support_dry_run(lambda src, dst: f"[toolchains] Copy {src} -> {dst} if src exists.")
+@_support_dry_run(lambda src, dst: f"{_color.toolchains} Copy {src} -> {dst} if src exists.")
 def copy_if_exist(
     src: pathlib.Path, dst: pathlib.Path, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None
 ) -> None:
@@ -164,7 +203,7 @@ def copy_if_exist(
         copy(src, dst, overwrite, follow_symlinks)
 
 
-@_support_dry_run(lambda path: f"[toolchains] Remove {path}.")
+@_support_dry_run(lambda path: f"{_color.toolchains} Remove {path}.")
 def remove(path: pathlib.Path, dry_run: bool | None = None) -> None:
     """删除指定路径
 
@@ -178,7 +217,7 @@ def remove(path: pathlib.Path, dry_run: bool | None = None) -> None:
         os.remove(path)
 
 
-@_support_dry_run(lambda path: f"[toolchains] Remove {path} if path exists.")
+@_support_dry_run(lambda path: f"{_color.toolchains} Remove {path} if path exists.")
 def remove_if_exists(path: pathlib.Path, dry_run: bool | None = None) -> None:
     """如果指定路径存在则删除指定路径
 
@@ -190,7 +229,7 @@ def remove_if_exists(path: pathlib.Path, dry_run: bool | None = None) -> None:
         remove(path)
 
 
-@_support_dry_run(lambda path: f"[toolchains] Enter directory {path}.")
+@_support_dry_run(lambda path: f"{_color.toolchains} Enter directory {path}.")
 def chdir(path: pathlib.Path, dry_run: bool | None = None) -> pathlib.Path:
     """将工作目录设置为指定路径
 
@@ -206,7 +245,7 @@ def chdir(path: pathlib.Path, dry_run: bool | None = None) -> pathlib.Path:
     return cwd
 
 
-@_support_dry_run(lambda src, dst: f"[toolchains] Rename {src} -> {dst}.")
+@_support_dry_run(lambda src, dst: f"{_color.toolchains} Rename {src} -> {dst}.")
 def rename(src: pathlib.Path, dst: pathlib.Path, dry_run: bool | None = None) -> None:
     """重命名指定路径
 
@@ -232,23 +271,26 @@ class chdir_guard:
         chdir(self.cwd, self.dry_run)
 
 
-def check_lib_dir(lib: str, lib_dir: pathlib.Path, do_assert: bool = True) -> bool:
+@_support_dry_run(lambda lib, lib_dir: f"{_color.toolchains} Checking {lib} in {lib_dir} ... ", "")
+def check_lib_dir(lib: str, lib_dir: pathlib.Path, do_assert: bool = True, dry_run: bool | None = None) -> bool:
     """检查库目录是否存在
 
     Args:
         lib (str): 库名称，用于提供错误报告信息
         lib_dir (pathlib.Path): 库目录
         do_assert (bool, optional): 是否断言库存在. 默认断言.
+        dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
 
     Returns:
         bool: 返回库是否存在
     """
-    message = f'[toolchains] Cannot find lib "{lib}" in directory "{lib_dir}"'
+    message = f'{_color.toolchains} {_color.error.wrapper(f"Cannot find lib '{lib}' in directory '{lib_dir}'")}'
     if not do_assert and not lib_dir.exists():
-        print(message)
+        print(_color.error.wrapper("no"))
         return False
     else:
         assert lib_dir.exists(), message
+    print(_color.success.wrapper("yes"))
     return True
 
 
@@ -296,10 +338,15 @@ class basic_environment:
         """注册安装路径到环境变量"""
         os.environ["PATH"] = f"{self.bin_dir}{os.pathsep}{os.environ['PATH']}"
 
-    def register_in_bashrc(self) -> None:
-        """注册安装路径到用户配置文件"""
-        with (self.home / ".bashrc").open("a") as bashrc_file:
-            bashrc_file.write(f"export PATH={self.bin_dir}:$PATH\n")
+    @_support_dry_run(lambda self: f"{_color.toolchains} Registering toolchain -> {self.home / ".bashrc"}.")
+    def register_in_bashrc(self, dry_run: bool | None = None) -> None:
+        """注册安装路径到用户配置文件
+
+        Args:
+            dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
+        """
+        with (self.home / ".bashrc").open("a") as file:
+            file.write(f"export PATH={self.bin_dir}:$PATH\n")
 
     def copy_readme(self) -> None:
         """复制工具链说明文件"""
@@ -597,7 +644,7 @@ class basic_configure:
         output_list: dict[str, typing.Any] = {**self._map_value(basic_configure), **self._map_value(type(self))}
         return output_list
 
-    @_support_dry_run(lambda self: f"[toolchains] Save settings -> {file}." if (file := self._args.export_file) else None)
+    @_support_dry_run(lambda self: f"{_color.toolchains} Save settings -> {file}." if (file := self._args.export_file) else None)
     def save_config(self) -> None:
         """将配置保存到文件，使用json格式
 
