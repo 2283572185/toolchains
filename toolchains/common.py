@@ -33,7 +33,7 @@ class _color(enum.StrEnum):
     success = colorama.Fore.GREEN
     note = colorama.Fore.LIGHTBLUE_EX
     reset = colorama.Fore.RESET
-    toolchains = f"{note}[toolchains]{reset}"
+    toolchains = f"{colorama.Fore.CYAN}[toolchains]{reset}"
 
     def wrapper(self, string: str) -> str:
         """以指定颜色输出string，然后恢复默认配色
@@ -45,6 +45,54 @@ class _color(enum.StrEnum):
             str: 输出字符串
         """
         return f"{self}{string}{_color.reset}"
+
+
+def toolchains_warning(string: str) -> str:
+    """返回toolchains的警告信息
+
+    Args:
+        string (str): 警告字符串
+
+    Returns:
+        str: [toolchains] warning
+    """
+    return f"{_color.toolchains} {_color.warning.wrapper(string)}"
+
+
+def toolchains_error(string: str) -> str:
+    """返回toolchains的错误信息
+
+    Args:
+        string (str): 错误字符串
+
+    Returns:
+        str: [toolchains] error
+    """
+    return f"{_color.toolchains} {_color.error.wrapper(string)}"
+
+
+def toolchains_success(string: str) -> str:
+    """返回toolchains的成功信息
+
+    Args:
+        string (str): 成功字符串
+
+    Returns:
+        str: [toolchains] success
+    """
+    return f"{_color.toolchains} {_color.success.wrapper(string)}"
+
+
+def toolchains_note(string: str) -> str:
+    """返回toolchains的提示信息
+
+    Args:
+        string (str): 提示字符串
+
+    Returns:
+        str: [toolchains] note
+    """
+    return f"{_color.toolchains} {_color.note.wrapper(string)}"
 
 
 class command_dry_run:
@@ -155,7 +203,7 @@ def mkdir(path: pathlib.Path, remove_if_exist: bool = True, dry_run: bool | None
         remove_if_exist (bool, optional): 是否先删除已存在的同名目录. 默认先删除已存在的同名目录.
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
-    if remove_if_exist and os.path.exists(path):
+    if remove_if_exist and path.exists():
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
 
@@ -284,7 +332,7 @@ def check_lib_dir(lib: str, lib_dir: pathlib.Path, do_assert: bool = True, dry_r
     Returns:
         bool: 返回库是否存在
     """
-    message = f'{_color.toolchains} {_color.error.wrapper(f"Cannot find lib '{lib}' in directory '{lib_dir}'")}'
+    message = toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
     if not do_assert and not lib_dir.exists():
         print(_color.error.wrapper("no"))
         return False
