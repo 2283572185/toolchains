@@ -1900,6 +1900,18 @@ files = [
 ]
 
 [[package]]
+name = "types-colorama"
+version = "0.4.15.20240311"
+description = "Typing stubs for colorama"
+optional = false
+python-versions = ">=3.8"
+groups = ["dev"]
+files = [
+    {file = "types-colorama-0.4.15.20240311.tar.gz", hash = "sha256:a28e7f98d17d2b14fb9565d32388e419f4108f557a7d939a66319969b2b99c7a"},
+    {file = "types_colorama-0.4.15.20240311-py3-none-any.whl", hash = "sha256:6391de60ddc0db3f147e31ecb230006a6823e81e380862ffca1e4695c13a0b8e"},
+]
+
+[[package]]
 name = "types-psutil"
 version = "6.1.0.20241221"
 description = "Typing stubs for psutil"
@@ -2052,4 +2064,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12.0"
-content-hash = "5ebb3e055da6aefcef414a765a7855c46f81153ca03f60c1e5d6017213102280"
+content-hash = "3db86b9c9ffc7713351508777d367b6d03558dea5920237dfb9f50c882e52e6e"

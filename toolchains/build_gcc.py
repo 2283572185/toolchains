@@ -1,6 +1,6 @@
 import argparse
 
-from . import build_gcc_source, common
+from . import common
 from .build_gcc_source import *
 
 
@@ -11,6 +11,7 @@ def check_triplet(host: str, target: str) -> None:
         host (str): 宿主平台
         target (str): 目标平台
     """
+
     for input_triplet, triplet_list, name in (
         (host, support_platform_list.host_list, "Host"),
         (target, support_platform_list.target_list, "Target"),
@@ -41,6 +42,7 @@ def build_specific_gcc(
         host (str): 宿主平台
         target (str): 目标平台
     """
+
     config_list = vars(config)
     del config_list["_origin_home_path"]
     env = environment(host=host, target=target, **config_list)
@@ -59,7 +61,15 @@ def dump_support_platform() -> None:
         print(f"\t{target}")
 
 
-__all__ = [*build_gcc_source.__all__, "check_triplet", "build_specific_gcc", "dump_support_platform"]
+__all__ = [
+    "modifier_list",
+    "support_platform_list",
+    "configure",
+    "environment",
+    "check_triplet",
+    "build_specific_gcc",
+    "dump_support_platform",
+]
 
 
 def main() -> None:
@@ -107,4 +117,4 @@ def main() -> None:
     else:
         build_specific_gcc(current_config, args.host, args.target)
 
-    current_config.save_config(args)
+    current_config.save_config()

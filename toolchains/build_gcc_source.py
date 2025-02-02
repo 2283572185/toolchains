@@ -130,7 +130,7 @@ class configure(common.basic_configure):
     def check(self) -> None:
         """检查gcc构建配置是否合法"""
 
-        common._check_home(self.home)
+        common.check_home(self.home)
         assert self.build and common.triplet_field.check(self.build), f"Invalid build platform: {self.build}."
         assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
 

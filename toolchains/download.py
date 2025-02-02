@@ -1,7 +1,7 @@
 import argparse
 import pathlib
 
-from . import common, download_source
+from . import common
 from .download_source import *
 
 
@@ -228,7 +228,13 @@ def _check_input(args: argparse.Namespace) -> None:
 
 
 __all__ = [
-    *download_source.__all__,
+    "extra_lib_version",
+    "git_clone_type",
+    "git_prefer_remote",
+    "all_lib_list",
+    "configure",
+    "after_download_list",
+    "extra_git_options_list",
     "download_gcc_contrib",
     "download_specific_extra_lib",
     "download",
@@ -237,7 +243,7 @@ __all__ = [
     "get_system_lib_list",
     "remove_specific_lib",
     "remove",
-]  # type: ignore
+]
 
 
 def main() -> None:
@@ -328,3 +334,5 @@ def main() -> None:
             print(f"Please install following system libs: {' '.join(get_system_lib_list())}")
         case "remove":
             remove(current_config, args.remove or all_lib_list.all_lib_list)
+        case _:
+            pass

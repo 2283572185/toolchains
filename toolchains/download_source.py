@@ -14,13 +14,26 @@ class extra_lib_version(enum.StrEnum):
     gmp = "6.3.0"
     mpfr = "4.2.1"
 
-    @common._support_dry_run(lambda self, dir: f"Save version of {self} -> {dir / ".version"}.")
+    def _save_version_echo(self, dir: pathlib.Path) -> str:
+        """在保存包信息时回显信息
+
+        Args:
+            dir (pathlib.Path): 要保存版本信息文件的目录
+
+        Returns:
+            str: 回显信息
+        """
+
+        return f"Save version of {self} -> {dir / ".version"}."
+
+    @common.support_dry_run(_save_version_echo)
     def save_version(self, dir: pathlib.Path) -> None:
         """将包版本信息保存到dir/.version文件中
 
         Args:
             dir (pathlib.Path): 要保存版本信息文件的目录
         """
+
         (dir / ".version").write_text(self)
 
     def check_version(self, dir: pathlib.Path) -> int:
@@ -32,6 +45,7 @@ class extra_lib_version(enum.StrEnum):
         Returns:
             int: 三路比较结果，1为存在更新版本，0为版本一致，-1为需要更新
         """
+
         try:
             with (dir / ".version").open() as file:
                 current_version = version.Version(file.readline())
@@ -150,6 +164,7 @@ class extra_lib:
             install_dir (list[str]): 安装路径
             version_dir (str): 包含版本文件的目录
         """
+
         self.url_list = {pathlib.Path(file): url for file, url in url_list.items()}
         self.install_dir = [pathlib.Path(dir) for dir in install_dir]
         self.version_dir = pathlib.Path(version_dir)
@@ -160,6 +175,7 @@ class extra_lib:
         Args:
             config (environment): 源代码下载环境
         """
+
         for path in self.install_dir:
             if not (config.home / path).exists():
                 return False
@@ -374,7 +390,7 @@ class configure(common.basic_configure):
     def check(self) -> None:
         """检查各个参数是否合法"""
 
-        common._check_home(self.home)
+        common.check_home(self.home)
         assert self.glibc_version, f"Invalid glibc version: {self.glibc_version}"
         assert self.shallow_clone_depth > 0, f"Invalid shallow clone depth: {self.shallow_clone_depth}."
         assert self.network_try_times >= 1, f"Invalid network try times: {self.network_try_times}."
