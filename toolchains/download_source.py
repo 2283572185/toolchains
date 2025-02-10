@@ -24,7 +24,7 @@ class extra_lib_version(enum.StrEnum):
             str: 回显信息
         """
 
-        return f"Save version of {self} -> {dir / ".version"}."
+        return common.toolchains_info(f"Save version of {self.name} -> {dir / ".version"}.")
 
     @common.support_dry_run(_save_version_echo)
     def save_version(self, dir: pathlib.Path) -> None:

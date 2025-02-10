@@ -100,6 +100,19 @@ def toolchains_note(string: str) -> str:
     return f"{_color.toolchains} {_color.note.wrapper(string)}"
 
 
+def toolchains_info(string: str) -> str:
+    """返回toolchains的普通信息
+
+    Args:
+        string (str): 提示字符串
+
+    Returns:
+        str: [toolchain] info
+    """
+
+    return f"{_color.toolchains} {string}"
+
+
 class command_dry_run:
     """是否只显示命令而不实际执行"""
 
@@ -166,7 +179,7 @@ def _run_command_echo(command: str | list[str], echo: bool) -> str | None:
 
     if isinstance(command, list):
         command = " ".join(command)
-    return f"{_color.toolchains} Run command: {command}" if echo else None
+    return toolchains_info(f"Run command: {command}") if echo else None
 
 
 @support_dry_run(_run_command_echo)
@@ -206,11 +219,9 @@ def run_command(
         )
     except subprocess.CalledProcessError as e:
         if not ignore_error:
-            raise RuntimeError(_color.error.wrapper(f'Command "{command}" failed.'))
+            raise RuntimeError(toolchains_error(f'Command "{command}" failed.'))
         elif echo:
-            print(
-                f"{_color.toolchains} {_color.warning.wrapper(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.')}"
-            )
+            print(toolchains_warning(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.'))
         return None
     return result
 
@@ -225,7 +236,7 @@ def _mkdir_echo(path: Path) -> str:
         str: 回显信息
     """
 
-    return f"{_color.toolchains} Create directory {path}."
+    return toolchains_info(f"Create directory {path}.")
 
 
 @support_dry_run(_mkdir_echo)
@@ -254,7 +265,7 @@ def _copy_echo(src: Path, dst: Path) -> str:
         str: 回显信息
     """
 
-    return f"{_color.toolchains} Copy {src} -> {dst}."
+    return toolchains_info(f"Copy {src} -> {dst}.")
 
 
 @support_dry_run(_copy_echo)
@@ -295,7 +306,7 @@ def _copy_if_exist_echo(src: Path, dst: Path) -> str:
         str: 回显信息
     """
 
-    return f"{_color.toolchains} Copy {src} -> {dst} if src exists."
+    return toolchains_info(f"Copy {src} -> {dst} if src exists.")
 
 
 @support_dry_run(_copy_if_exist_echo)
@@ -324,7 +335,7 @@ def _remove_echo(path: Path) -> str:
         str: 回显信息
     """
 
-    return f"{_color.toolchains} Remove {path}."
+    return toolchains_info(f"Remove {path}.")
 
 
 @support_dry_run(_remove_echo)
@@ -352,7 +363,7 @@ def _remove_if_exists_echo(path: Path) -> str:
         str: 回显信息
     """
 
-    return f"{_color.toolchains} Remove {path} if path exists."
+    return toolchains_info(f"Remove {path} if path exists.")
 
 
 @support_dry_run(_remove_if_exists_echo)
@@ -378,7 +389,7 @@ def _chdir_echo(path: Path) -> str:
         str: 回显信息
     """
 
-    return f"{_color.toolchains} Enter directory {path}."
+    return toolchains_info(f"Enter directory {path}.")
 
 
 @support_dry_run(_chdir_echo)
@@ -409,7 +420,7 @@ def _rename_echo(src: Path, dst: Path) -> str:
         str: 回显信息
     """
 
-    return f"{_color.toolchains} Rename {src} -> {dst}."
+    return toolchains_info(f"Rename {src} -> {dst}.")
 
 
 @support_dry_run(_rename_echo)
@@ -450,7 +461,7 @@ def _check_lib_dir_echo(lib: str, lib_dir: Path) -> str:
         str: 回显信息
     """
 
-    return f"{_color.toolchains} Checking {lib} in {lib_dir} ... "
+    return toolchains_info(f"Checking {lib} in {lib_dir} ... ")
 
 
 @support_dry_run(_check_lib_dir_echo, "")
@@ -469,11 +480,11 @@ def check_lib_dir(lib: str, lib_dir: Path, do_assert: bool = True, dry_run: bool
 
     message = toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
     if not do_assert and not lib_dir.exists():
-        print(_color.error.wrapper("no"))
+        print(toolchains_error("no"))
         return False
     else:
         assert lib_dir.exists(), message
-    print(_color.success.wrapper("yes"))
+    print(toolchains_success("yes"))
     return True
 
 
@@ -527,7 +538,7 @@ class basic_environment:
             str: 回显信息
         """
 
-        return f"{_color.toolchains} Registering toolchain -> {self.home / ".bashrc"}."
+        return toolchains_info(f"Registering toolchain -> {self.home / '.bashrc'}.")
 
     @support_dry_run(_register_in_bashrc_echo)
     def register_in_bashrc(self, dry_run: bool | None = None) -> None:
@@ -758,7 +769,7 @@ class basic_configure:
         result: Self = cls(**param_list)
 
         # 处理基类
-        param_list= {}
+        param_list = {}
         for key in itertools.islice(inspect.signature(basic_configure.__init__).parameters.keys(), 1, None):
             if key in input_list:
                 param_list[key] = input_list[key]
@@ -858,7 +869,7 @@ class basic_configure:
             str | None: 回显信息
         """
 
-        return f"{_color.toolchains} Save settings -> {file}." if (file := self._args.export_file) else None
+        return toolchains_info(f"Save settings -> {file}.") if (file := self._args.export_file) else None
 
     @support_dry_run(_save_config_echo)
     def save_config(self) -> None:
