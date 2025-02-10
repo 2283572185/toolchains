@@ -53,8 +53,8 @@ def download_specific_extra_lib(config: configure, lib: str) -> None:
         lib (str): 要下载的包名
     """
     assert lib in all_lib_list.extra_lib_list, f"Unknown extra lib: {lib}"
-    extra_lib_v = all_lib_list.extra_lib_list[lib]
-    for lib, url in extra_lib_v.url_list.items():
+    extra_lib = all_lib_list.get_prefer_extra_lib_list(config, lib)
+    for lib, url in extra_lib.url_list.items():
         common.run_command(f"wget {url} -c -t {config.network_try_times} -O {os.path.join(config.home, lib)}")
 
 
@@ -87,7 +87,7 @@ def download(config: configure) -> None:
     # 下载非git托管代码
     for lib in config.extra_lib_list:
         assert lib in all_lib_list.extra_lib_list, f"Unknown extra lib: {lib}"
-        if not all_lib_list.extra_lib_list[lib].check_exist(config):
+        if not all_lib_list.get_prefer_extra_lib_list(config, lib).check_exist(config):
             download_specific_extra_lib(config, lib)
             after_download_list.after_download_specific_lib(config, lib)
         else:
@@ -138,7 +138,7 @@ def update(config: configure) -> None:
     for lib in config.extra_lib_list:
         lib_version = extra_lib_version[lib if lib != "python-embed" else "python"]
         need_download = _check_version_echo(
-            lib, lib_version.check_version(os.path.join(config.home, all_lib_list.extra_lib_list[lib].version_dir))
+            lib, lib_version.check_version(os.path.join(config.home, all_lib_list.get_prefer_extra_lib_list(config, lib).version_dir))
         )
         if need_download:
             download_specific_extra_lib(config, lib)
@@ -176,7 +176,7 @@ def remove_specific_lib(config: configure, lib: str) -> None:
     """
 
     if lib in all_lib_list.extra_lib_list:
-        install_item: list[str] = all_lib_list.extra_lib_list[lib].install_dir
+        install_item: list[str] = all_lib_list.get_prefer_extra_lib_list(config, lib).install_dir
     elif lib in all_lib_list.git_lib_list_github:
         install_item = [os.path.join(config.home, lib)]
     elif lib == "gcc_contrib":

@@ -10,11 +10,13 @@ from . import common
 class extra_lib_version(enum.StrEnum):
     python = "3.13.1"
     iconv = "1.18"
-    loongnix = "4.19.190"
+    loongnix_linux = "4.19.190.8.22"
+    loongnix_glibc = "2.28"
+    loongnix = loongnix_linux
     gmp = "6.3.0"
     mpfr = "4.2.1"
 
-    @common._support_dry_run(lambda self, dir: f"Save version of {self} -> {os.path.join(dir, ".version")}.")
+    @common._support_dry_run(lambda self, dir: f"Save version {self} -> {os.path.join(dir, ".version")}.")
     def save_version(self, dir: str) -> None:
         """将包版本信息保存到dir/.version文件中
 
@@ -53,7 +55,7 @@ def get_current_glib_version() -> str | None:
     Returns:
         (str | None): 当前平台glibc版本，获取失败返回None
     """
-    
+
     result = common.run_command("getconf GNU_LIBC_VERSION", ignore_error=True, capture=True, echo=False, dry_run=False)
     if result:
         return result.stdout.strip().split(" ", 1)[1]
@@ -98,7 +100,7 @@ class git_url:
             path (str): git包在托管平台下的路径
             default_protocol (str, optional): 非ssh模式下默认的网络协议. 默认为https.
         """
-        
+
         self.remote = remote
         self.path = path
         self.default_protocol = default_protocol
@@ -109,7 +111,7 @@ class git_url:
         Args:
             prefer_ssh (bool): 是否倾向于使用ssh
         """
-        
+
         use_ssh = prefer_ssh and self.remote == "github.com"
         return f"git@{self.remote}:{self.path}" if use_ssh else f"{self.default_protocol}://{self.remote}/{self.path}"
 
@@ -155,6 +157,15 @@ class extra_lib:
         self.install_dir = install_dir
         self.version_dir = version_dir
 
+    def create_mirror(self, url_list: dict[str, str]) -> "extra_lib":
+        """在本包配置的基础上创建一个镜像
+
+        Args:
+            url_list (dict[str, str]): 镜像使用的url列表，dict[下载后文件名, url]
+        """
+
+        return extra_lib(url_list, self.install_dir, self.version_dir)
+
     def check_exist(self, config: "configure") -> bool:
         """检查包是否存在
 
@@ -180,7 +191,8 @@ class all_lib_list:
         git_lib_list_bfsu  : git包的北京外国语大学镜像源
         git_lib_list_nyist : git包的南阳理工学院镜像源
         git_lib_list_cernet: git包的校园网联合镜像源
-        extra_lib_list     : 非git包的信息列表
+        extra_lib_list     : 非git包的信息列表，默认为南京大学镜像
+        extra_lib_list_native: 非git包的信息列表，不使用镜像
         necessary_extra_lib_list: 必须的非git包列表
         optional_extra_lib_list : 可选的非git包列表
         all_lib_list       : 所有受支持的包列表
@@ -278,19 +290,20 @@ class all_lib_list:
         "llvm": git_url("mirrors.cernet.edu.cn", "llvm-project.git"),
     }
 
+    # 额外包列表，由于native网络性能不佳，默认使用南京大学镜像
     extra_lib_list: typing.Final[dict[str, extra_lib]] = {
         "python-embed": extra_lib(
             {
-                "python-embed.zip": f"https://www.python.org/ftp/python/{extra_lib_version.python}/python-{extra_lib_version.python}-embed-amd64.zip",
-                "python_source.tar.xz": f"https://www.python.org/ftp/python/{extra_lib_version.python}/Python-{extra_lib_version.python}.tar.xz",
+                "python-embed.zip": f"https://mirrors.nju.edu.cn/python/{extra_lib_version.python}/python-{extra_lib_version.python}-embed-amd64.zip",
+                "python_source.tar.xz": f"https://mirrors.nju.edu.cn/python/{extra_lib_version.python}/Python-{extra_lib_version.python}.tar.xz",
             },
             ["python-embed"],
             "python-embed",
         ),
         "loongnix": extra_lib(
             {
-                "linux-loongnix.tar.gz": "https://pkg.loongnix.cn/loongnix/pool/main/l/linux/linux_4.19.190.8.22.orig.tar.gz",
-                "glibc-loongnix.tar.gz": "https://pkg.loongnix.cn/loongnix/pool/main/g/glibc/glibc_2.28.orig.tar.gz",
+                "linux-loongnix.tar.gz": f"https://mirrors.nju.edu.cn/loongnix/pool/main/l/linux/linux_{extra_lib_version.loongnix_linux}.orig.tar.gz",
+                "glibc-loongnix.tar.gz": f"https://mirrors.nju.edu.cn/loongnix/pool/main/g/glibc/glibc_{extra_lib_version.loongnix_glibc}.orig.tar.gz",
             },
             ["linux-loongnix", "glibc-loongnix"],
             "linux-loongnix",
@@ -302,6 +315,21 @@ class all_lib_list:
         ),
         "gmp": extra_lib({"gmp.tar.xz": f"https://gmplib.org/download/gmp/gmp-{extra_lib_version.gmp}.tar.xz"}, ["gmp"], "gmp"),
         "mpfr": extra_lib({"mpfr.tar.xz": f"https://www.mpfr.org/mpfr-current/mpfr-{extra_lib_version.mpfr}.tar.xz"}, ["mpfr"], "mpfr"),
+    }
+    extra_lib_list_native: typing.Final[dict[str, extra_lib]] = {
+        **extra_lib_list,
+        "python-embed": extra_lib_list["python-embed"].create_mirror(
+            {
+                "python-embed.zip": f"https://www.python.org/ftp/python/{extra_lib_version.python}/python-{extra_lib_version.python}-embed-amd64.zip",
+                "python_source.tar.xz": f"https://www.python.org/ftp/python/{extra_lib_version.python}/Python-{extra_lib_version.python}.tar.xz",
+            }
+        ),
+        "loongnix": extra_lib_list["loongnix"].create_mirror(
+            {
+                "linux-loongnix.tar.gz": f"https://pkg.loongnix.cn/loongnix/pool/main/l/linux/linux_{extra_lib_version.loongnix_linux}.orig.tar.gz",
+                "glibc-loongnix.tar.gz": f"https://pkg.loongnix.cn/loongnix/pool/main/g/glibc/glibc_{extra_lib_version.loongnix_glibc}.orig.tar.gz",
+            }
+        ),
     }
     necessary_extra_lib_list: typing.Final[set[str]] = {"python-embed", "gmp", "mpfr"}
     optional_extra_lib_list: typing.Final[set[str]] = {lib for lib in extra_lib_list} - necessary_extra_lib_list
@@ -317,8 +345,24 @@ class all_lib_list:
         Returns:
             dict[str, git_url]: git包列表
         """
-        
+
         return typing.cast(dict[str, git_url], getattr(all_lib_list, f"git_lib_list_{config.git_remote}"))
+
+    @staticmethod
+    def get_prefer_extra_lib_list(config: "configure", lib: str) -> extra_lib:
+        """根据配置选择使用合适镜像源的非git包
+
+        Args:
+            config (configure): 当前下载配置
+            lib (str): 包名称
+
+        Returns:
+            extra_lib: 非git包对象
+        """
+
+        return typing.cast(dict[str, extra_lib], getattr(all_lib_list, f"extra_lib_list_{config.git_remote}", all_lib_list.extra_lib_list))[
+            lib
+        ]
 
 
 class configure(common.basic_configure):
@@ -356,7 +400,7 @@ class configure(common.basic_configure):
             retry (int, optional): 进行网络操作时重试的次数. 默认为5次.
             remote (str, optional): 倾向于使用的git源. 默认为GitHub源.
         """
-        
+
         self.glibc_version = glibc_version or get_current_glib_version()
         self.clone_type = git_clone_type[clone_type]
         self.shallow_clone_depth = depth
