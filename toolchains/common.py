@@ -492,14 +492,14 @@ class basic_configure:
             Self: 解码得到的对象
         """
         # 先处理子类，因为子类调用了基类的默认构造，会覆盖基类的成员
-        param_list = {}
+        param_list: dict[str, typing.Any] = {}
         for key in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
             if key in input_list:
                 param_list[key] = input_list[key]
         result: Self = cls(**param_list)
 
         # 处理基类
-        param_list: dict[str, typing.Any] = {}
+        param_list= {}
         for key in itertools.islice(inspect.signature(basic_configure.__init__).parameters.keys(), 1, None):
             if key in input_list:
                 param_list[key] = input_list[key]
@@ -517,7 +517,7 @@ class basic_configure:
 
     @classmethod
     def parse_args(cls, args: argparse.Namespace) -> Self:
-        """解析命令选项并根据选项构造对象
+        """解析命令选项并根据选项构造对象，会自动解析配置文件
 
         Args:
             args (argparse.Namespace): 命令选项

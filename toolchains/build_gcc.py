@@ -99,7 +99,6 @@ def main() -> None:
     _check_input(args)
 
     current_config = configure.parse_args(args)
-    current_config.load_config(args)
     current_config.check()
 
     if args.dump:
