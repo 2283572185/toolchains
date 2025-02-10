@@ -758,7 +758,7 @@ class basic_configure:
         result: Self = cls(**param_list)
 
         # 处理基类
-        param_list = {}
+        param_list= {}
         for key in itertools.islice(inspect.signature(basic_configure.__init__).parameters.keys(), 1, None):
             if key in input_list:
                 param_list[key] = input_list[key]
@@ -777,7 +777,7 @@ class basic_configure:
 
     @classmethod
     def parse_args(cls, args: argparse.Namespace) -> Self:
-        """解析命令选项并根据选项构造对象
+        """解析命令选项并根据选项构造对象，会自动解析配置文件
 
         Args:
             args (argparse.Namespace): 命令选项
