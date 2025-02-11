@@ -41,7 +41,7 @@ def build_origin_sysroot(env: environment) -> None:
             common.copy(os.path.join(src_dir, item), os.path.join(dst_dir, item))
 
     # 复制说明文件
-    common.copy(os.path.join(env.current_dir, "..", "readme", "sysroot.md"), os.path.join(env.sysroot_dir, "README.md"))
+    common.copy(os.path.join(env.root_dir, "..", "readme", "sysroot.md"), os.path.join(env.sysroot_dir, "README.md"))
 
 
 def auto_build_sysroot(env: environment) -> None:

@@ -285,7 +285,7 @@ def copy(src: Path, dst: Path, overwrite: bool = True, follow_symlinks: bool = F
     mkdir(dir, False)
     if not overwrite and dst.exists():
         return
-    if os.path.isdir(src):
+    if src.is_dir():
         if dst.exists():
             shutil.rmtree(dst)
         shutil.copytree(src, dst, not follow_symlinks)
@@ -436,6 +436,57 @@ def rename(src: Path, dst: Path, dry_run: bool | None = None) -> None:
     src.rename(dst)
 
 
+def _symlink_echo(src: Path, dst: Path) -> str:
+    """在创建软链接时回显信息
+
+    Args:
+        src (Path): 源路径
+        dst (Path): 目标路径
+
+    Returns:
+        str: 回显信息
+    """
+
+    return toolchains_info(f"Symlink {dst} -> {src}.")
+
+
+@support_dry_run(_symlink_echo)
+def symlink(src: Path, dst: Path, dry_run: bool | None = None) -> None:
+    """创建软链接
+
+    Args:
+        src (Path): 源路径
+        dst (Path): 目标路径
+        dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
+    """
+
+    dst.symlink_to(src, src.is_dir())
+
+
+def add_environ(key: str, value: str | Path) -> None:
+    """添加系统环境变量
+
+    Args:
+        key (str): 环境变量名称
+        value (str | Path): 环境变量的值
+    """
+
+    value = str(value)
+    os.environ[key] = value
+
+
+def insert_environ(key: str, value: str | Path) -> None:
+    """在现有环境变量的前端插入新的值
+
+    Args:
+        key (str): 环境变量名称
+        value (str | Path): 环境变量的值
+    """
+
+    value = str(value)
+    os.environ[key] = f"{value}{os.pathsep}{os.environ[key]}"
+
+
 class chdir_guard:
     """在构造时进入指定工作目录并在析构时回到原工作目录"""
 
@@ -496,23 +547,27 @@ class basic_environment:
     major_version: str  # 主版本号
     home: Path  # 源代码所在的目录
     jobs: int  # 编译所用线程数
-    current_dir: Path  # toolchains项目所在目录
+    root_dir: Path  # toolchains项目所在目录
+    script_dir: Path  # script所在目录
+    readme_dir: Path  # readme所在目录
     name_without_version: str  # 不带版本号的工具链名
     name: str  # 工具链名
     prefix_dir: Path  # 安装路径
     bin_dir: Path  # 安装后可执行文件所在目录
 
-    def __init__(self, build: str, version: str, name_without_version: str, home: Path, jobs: int, prefix_dir: Path) -> None:
+    def __init__(self, build: str, version: str, name_without_version: str, home: str, jobs: int, prefix_dir: str) -> None:
         self.build = build
         self.version = version
         self.major_version = self.version.split(".")[0]
         self.name_without_version = name_without_version
         self.name = self.name_without_version + self.major_version
-        self.home = home
+        self.home = Path(home)
         self.jobs = jobs
-        self.current_dir = Path(__file__).parent.resolve()
-        self.prefix_dir = prefix_dir
-        self.bin_dir = prefix_dir / self.name / "bin"
+        self.root_dir = Path(__file__).parent.resolve()
+        self.script_dir = self.root_dir.parent / "script"
+        self.readme_dir = self.root_dir.parent / "readme"
+        self.prefix_dir = Path(prefix_dir)
+        self.bin_dir = self.prefix_dir / self.name / "bin"
 
     def compress(self, name: str | None = None) -> None:
         """压缩构建完成的工具链
@@ -529,7 +584,7 @@ class basic_environment:
 
     def register_in_env(self) -> None:
         """注册安装路径到环境变量"""
-        os.environ["PATH"] = f"{self.bin_dir}{os.pathsep}{os.environ['PATH']}"
+        insert_environ("PATH", self.bin_dir)
 
     def _register_in_bashrc_echo(self) -> str:
         """在.bashrc中注册工具链时回显信息
@@ -554,7 +609,7 @@ class basic_environment:
     def copy_readme(self) -> None:
         """复制工具链说明文件"""
 
-        readme_path = self.current_dir.parent / "readme" / f"{self.name_without_version}.md"
+        readme_path = self.readme_dir / f"{self.name_without_version}.md"
         target_path = self.home / self.name / "README.md"
         copy(readme_path, target_path)
 
@@ -738,7 +793,8 @@ class basic_configure:
         if import_file := args.import_file:
             file_path = Path(import_file)
             try:
-                import_config_list = json.loads(file_path.read_text())
+                with file_path.open() as file:
+                    import_config_list = json.load(file)
                 assert isinstance(import_config_list, dict), f"Invalid configure file. The configure file must begin with a object."
                 import_config_list = typing.cast(dict[str, typing.Any], import_config_list)
             except Exception as e:
