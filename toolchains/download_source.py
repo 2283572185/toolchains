@@ -1,6 +1,7 @@
 import enum
-import os
 import typing
+from collections.abc import Sequence
+from pathlib import Path
 
 import packaging.version as version
 
@@ -16,27 +17,40 @@ class extra_lib_version(enum.StrEnum):
     gmp = "6.3.0"
     mpfr = "4.2.1"
 
-    @common._support_dry_run(lambda self, dir: f"Save version {self} -> {os.path.join(dir, ".version")}.")
-    def save_version(self, dir: str) -> None:
+    def _save_version_echo(self, dir: Path) -> str:
+        """在保存包信息时回显信息
+
+        Args:
+            dir (Path): 要保存版本信息文件的目录
+
+        Returns:
+            str: 回显信息
+        """
+
+        return common.toolchains_info(f"Save version of {self.name} -> {dir / ".version"}.")
+
+    @common.support_dry_run(_save_version_echo)
+    def save_version(self, dir: Path) -> None:
         """将包版本信息保存到dir/.version文件中
 
         Args:
-            dir (str): 要保存版本信息文件的目录
+            dir (Path): 要保存版本信息文件的目录
         """
-        with open(os.path.join(dir, ".version"), "w") as file:
-            file.write(self)
 
-    def check_version(self, dir: str) -> int:
+        (dir / ".version").write_text(self)
+
+    def check_version(self, dir: Path) -> int:
         """检查包版本
 
         Args:
-            dir (str): 包根目录
+            dir (Path): 包根目录
 
         Returns:
             int: 三路比较结果，1为存在更新版本，0为版本一致，-1为需要更新
         """
+
         try:
-            with open(os.path.join(dir, ".version")) as file:
+            with (dir / ".version").open() as file:
                 current_version = version.Version(file.readline())
                 target_version = version.Version(self)
                 if current_version > target_version:
@@ -141,21 +155,22 @@ class git_prefer_remote(enum.StrEnum):
 class extra_lib:
     """非git包的配置"""
 
-    url_list: dict[str, str]
-    install_dir: list[str]
-    version_dir: str
+    url_list: dict[Path, str]
+    install_dir: list[Path]
+    version_dir: Path
 
-    def __init__(self, url_list: dict[str, str], install_dir: list[str], version_dir: str) -> None:
+    def __init__(self, url_list: dict[str, str], install_dir: Sequence[str | Path], version_dir: str | Path) -> None:
         """描述一个非git包的配置
 
         Args:
             url_list (dict[str, str]): 各个资源列表，dict[下载后文件名, url]
-            install_dir (list[str]): 安装路径
+            install_dir (list[str | Path]): 安装路径
             version_dir (str): 包含版本文件的目录
         """
-        self.url_list = url_list
-        self.install_dir = install_dir
-        self.version_dir = version_dir
+
+        self.url_list = {Path(file): url for file, url in url_list.items()}
+        self.install_dir = [Path(dir) for dir in install_dir]
+        self.version_dir = Path(version_dir)
 
     def create_mirror(self, url_list: dict[str, str]) -> "extra_lib":
         """在本包配置的基础上创建一个镜像
@@ -172,8 +187,9 @@ class extra_lib:
         Args:
             config (environment): 源代码下载环境
         """
+
         for path in self.install_dir:
-            if not os.path.exists(os.path.join(config.home, path)):
+            if not (config.home / path).exists():
                 return False
         else:
             return True
@@ -310,8 +326,8 @@ class all_lib_list:
         ),
         "iconv": extra_lib(
             {"iconv.tar.gz": f"https://ftp.gnu.org/pub/gnu/libiconv/libiconv-{extra_lib_version.iconv}.tar.gz"},
-            [os.path.join("binutils", "gdb", "libiconv")],
-            os.path.join("binutils", "gdb", "libiconv"),
+            [Path("binutils", "gdb", "libiconv")],
+            Path("binutils", "gdb", "libiconv"),
         ),
         "gmp": extra_lib({"gmp.tar.xz": f"https://gmplib.org/download/gmp/gmp-{extra_lib_version.gmp}.tar.xz"}, ["gmp"], "gmp"),
         "mpfr": extra_lib({"mpfr.tar.xz": f"https://www.mpfr.org/mpfr-current/mpfr-{extra_lib_version.mpfr}.tar.xz"}, ["mpfr"], "mpfr"),
@@ -419,7 +435,7 @@ class configure(common.basic_configure):
     def check(self) -> None:
         """检查各个参数是否合法"""
 
-        common._check_home(self.home)
+        common.check_home(self.home)
         assert self.glibc_version, f"Invalid glibc version: {self.glibc_version}"
         assert self.shallow_clone_depth > 0, f"Invalid shallow clone depth: {self.shallow_clone_depth}."
         assert self.network_try_times >= 1, f"Invalid network try times: {self.network_try_times}."
@@ -436,7 +452,7 @@ class after_download_list:
             config (configure): 当前源代码下载配置
         """
 
-        _ = common.chdir_guard(os.path.join(config.home, "expat", "expat"))
+        _ = common.chdir_guard(config.home / "expat" / "expat")
         common.run_command("./buildconf.sh")
 
     @staticmethod
@@ -447,7 +463,7 @@ class after_download_list:
             config (configure): 当前源代码下载配置
         """
 
-        _ = common.chdir_guard(os.path.join(config.home, "pexports"))
+        _ = common.chdir_guard(config.home / "pexports")
         common.run_command("autoreconf -if")
 
     @staticmethod
@@ -459,10 +475,10 @@ class after_download_list:
         """
 
         python_version = extra_lib_version.python
-        python_embed_zip = os.path.join(config.home, "python-embed.zip")
-        python_source_txz = os.path.join(config.home, "python_source.tar.xz")
-        python_source = os.path.join(config.home, "python_source")
-        python_embed = os.path.join(config.home, "python-embed")
+        python_embed_zip = config.home / "python-embed.zip"
+        python_source_txz = config.home / "python_source.tar.xz"
+        python_source = config.home / "python_source"
+        python_embed = config.home / "python-embed"
         # 删除已安装包
         common.remove_if_exists(python_embed)
 
@@ -471,13 +487,13 @@ class after_download_list:
         common.remove(python_embed_zip)
         # 解压源代码包
         common.run_command(f"tar -xaf {python_source_txz}")
-        common.rename(f"Python-{python_version}", python_source)
+        common.rename(Path(f"Python-{python_version}"), python_source)
         common.remove(python_source_txz)
 
         # 复制头文件
-        include_dir: str = os.path.join(python_embed, "include")
-        common.copy(os.path.join(python_source, "Include"), include_dir)
-        common.copy(os.path.join(python_source, "PC", "pyconfig.h.in"), os.path.join(include_dir, "pyconfig.h"))
+        include_dir = python_embed / "include"
+        common.copy(python_source / "Include", include_dir)
+        common.copy(python_source / "PC" / "pyconfig.h.in", include_dir / "pyconfig.h")
         common.remove(python_source)
 
         # 记录python版本号
@@ -491,10 +507,10 @@ class after_download_list:
             config (configure): 当前源代码下载配置
         """
 
-        linux_tgz = os.path.join(config.home, "linux-loongnix.tar.gz")
-        glibc_tgz = os.path.join(config.home, "glibc-loongnix.tar.gz")
-        linux_dir = os.path.join(config.home, "linux-loongnix")
-        glibc_dir = os.path.join(config.home, "glibc-loongnix")
+        linux_tgz = config.home / "linux-loongnix.tar.gz"
+        glibc_tgz = config.home / "glibc-loongnix.tar.gz"
+        linux_dir = config.home / "linux-loongnix"
+        glibc_dir = config.home / "glibc-loongnix"
         # 删除已安装包
         common.remove_if_exists(linux_dir)
         common.remove_if_exists(glibc_dir)
@@ -504,7 +520,7 @@ class after_download_list:
         common.remove(linux_tgz)
         # 解压glibc
         common.run_command(f"tar -xaf {glibc_tgz} -C {config.home}")
-        common.rename(os.path.join(config.home, "glibc-2.28"), glibc_dir)
+        common.rename(config.home / "glibc-2.28", glibc_dir)
         common.remove(glibc_tgz)
         extra_lib_version.loongnix.save_version(linux_dir)
 
@@ -517,13 +533,13 @@ class after_download_list:
         """
 
         iconv_version = extra_lib_version.iconv
-        gdb_dir = os.path.join(config.home, "binutils", "gdb")
-        iconv_tgz = os.path.join(config.home, "iconv.tar.gz")
-        iconv_dir = os.path.join(gdb_dir, "libiconv")
+        gdb_dir = config.home / "binutils" / "gdb"
+        iconv_tgz = config.home / "iconv.tar.gz"
+        iconv_dir = gdb_dir / "libiconv"
         # 删除已安装包
         common.remove_if_exists(iconv_dir)
         common.run_command(f"tar -xaf {iconv_tgz} -C {gdb_dir}")
-        common.rename(os.path.join(gdb_dir, f"libiconv-{iconv_version}"), iconv_dir)
+        common.rename(gdb_dir / f"libiconv-{iconv_version}", iconv_dir)
         common.remove(iconv_tgz)
         iconv_version.save_version(iconv_dir)
 
@@ -536,12 +552,12 @@ class after_download_list:
         """
 
         gmp_version = extra_lib_version.gmp
-        gmp_dir = os.path.join(config.home, "gmp")
-        gmp_txz = os.path.join(config.home, "gmp.tar.xz")
+        gmp_dir = config.home / "gmp"
+        gmp_txz = config.home / "gmp.tar.xz"
         # 删除已安装包
         common.remove_if_exists(gmp_dir)
         common.run_command(f"tar -xaf {gmp_txz} -C {config.home}")
-        common.rename(os.path.join(config.home, f"gmp-{gmp_version}"), gmp_dir)
+        common.rename(config.home / f"gmp-{gmp_version}", gmp_dir)
         common.remove(gmp_txz)
         gmp_version.save_version(gmp_dir)
 
@@ -554,12 +570,12 @@ class after_download_list:
         """
 
         mpfr_version = extra_lib_version.mpfr
-        mpfr_dir = os.path.join(config.home, "mpfr")
-        mpfr_txz = os.path.join(config.home, "mpfr.tar.xz")
+        mpfr_dir = config.home / "mpfr"
+        mpfr_txz = config.home / "mpfr.tar.xz"
         # 删除已安装包
         common.remove_if_exists(mpfr_dir)
         common.run_command(f"tar -xaf {mpfr_txz} -C {config.home}")
-        common.rename(os.path.join(config.home, f"mpfr-{mpfr_version}"), mpfr_dir)
+        common.rename(config.home / f"mpfr-{mpfr_version}", mpfr_dir)
         common.remove(mpfr_txz)
         mpfr_version.save_version(mpfr_dir)
 

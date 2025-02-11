@@ -34,6 +34,7 @@ class configure(basic_configure):
 
 def test_default_construct() -> None:
     """测试configure是否可以正常默认构造"""
+
     configure()
 
 
@@ -78,6 +79,7 @@ class test_basic_configure:
         """测试在不传递参数全部使用默认设置的情况下，各个子命令是否解析参数得到的configure对象是否和默认一致
         针对basic_configure.parse_args
         """
+
         args = self.parser.parse_args([command])
         current_config = configure.parse_args(args)
         assert self.default_config == current_config
@@ -86,6 +88,7 @@ class test_basic_configure:
         """测试jobs选项能否正常解析
         针对整数解析
         """
+
         custom_jobs = 2
         args = self.parser.parse_args(["jobs", f"--jobs={custom_jobs}"])
         current_config = configure.parse_args(args)
@@ -95,6 +98,7 @@ class test_basic_configure:
         """测试prefix选项能否正常解析
         针对需要从字符串构造的对象
         """
+
         custom_prefix = str(tmpdir)
         args = self.parser.parse_args(["prefix", f"--prefix={custom_prefix}"])
         current_config = configure.parse_args(args)
@@ -104,6 +108,7 @@ class test_basic_configure:
         """测试libs选项能否正常解析
         针对可空列表解析
         """
+
         custom_libs = ["extra1", "extra2"]
         args = self.parser.parse_args(["libs", "--libs", *custom_libs])
         current_config = configure.parse_args(args)
@@ -120,12 +125,14 @@ class test_basic_configure:
         Args:
             tmpdir (Path): 临时文件路径
         """
-        tmpfile = pathlib.Path(tmpdir) / "test.json"
+
+        home = pathlib.Path(tmpdir)
+        tmpfile = home / "test.json"
         custom_prefix = str(tmpdir)  # 用户输入prefix
         import_libs = ["basic", "extra1", "extra2"]  # 保存在json中的libs
 
         test_json: dict[str, typing.Any] = {
-            "home": str(tmpdir),
+            "home": str(home),
             "jobs": self.default_config.jobs,
             "prefix": str(self.default_config.prefix),
             "libs": import_libs,
@@ -136,14 +143,14 @@ class test_basic_configure:
         args = self.parser.parse_args(["prefix", "--import", str(tmpfile), "--prefix", custom_prefix])
         current_config = configure.parse_args(args)
         gt = configure(jobs=self.default_config.jobs, prefix=custom_prefix, libs=["extra1", "extra2"])
-        gt.home = str(tmpdir)
+        gt.home = home
         assert current_config == gt
 
         # 尝试恢复默认配置
         args = self.parser.parse_args(["libs", "--import", str(tmpfile), "--libs"])
         current_config = configure.parse_args(args)
         gt = configure(jobs=self.default_config.jobs)
-        gt.home = str(tmpdir)
+        gt.home = home
         assert current_config == gt
 
     def test_export(self, tmpdir: Path) -> None:
@@ -152,6 +159,7 @@ class test_basic_configure:
         Args:
             tmpdir (Path): 临时文件路径
         """
+
         tmpfile = pathlib.Path(tmpdir) / "test.json"
         custom_prefix = str(tmpdir)  # 用户输入prefix
         args = self.parser.parse_args(["prefix", "--prefix", custom_prefix, "--home", ".", "--export", str(tmpfile)])
@@ -165,6 +173,7 @@ class test_basic_configure:
 
     def test_dry_run(self) -> None:
         """测试全局的dry_run状态是否正常设置"""
+
         args = self.parser.parse_args(["prefix", "--dry-run"])
         _ = configure.parse_args(args)
         assert command_dry_run.get() == True
@@ -178,6 +187,7 @@ class test_basic_configure:
         Args:
             tmpdir (Path): 临时文件目录
         """
+
         with pytest.raises(Exception):
             args = self.parser.parse_args(["prefix", "--import", str(tmpdir / "test.json")])
             _ = configure.parse_args(args)
@@ -188,6 +198,7 @@ class test_basic_configure:
         Args:
             tmpdir (Path): 临时文件目录
         """
+
         with pytest.raises(Exception):
             args = self.parser.parse_args(["prefix", "--export", "/dev/full"])
             _ = configure.parse_args(args)
