@@ -1,3 +1,5 @@
+# PYTHON_ARGCOMPLETE_OK
+
 import argparse
 import enum
 import functools
@@ -699,6 +701,65 @@ def check_home(home: str | Path) -> None:
     assert Path(home).exists(), f'The home dir "{home}" does not exist.'
 
 
+def _path_complete(prefix: str, need_file: bool, allowed_suffix: list[str]) -> list[str]:
+    """生产路径补全信息
+
+    Args:
+        prefix (str): 已输入的部分路径
+        need_file (bool): 是否需要列出可选文件
+        allowed_suffix (list[str]): 接受的文件后缀列表，为[]表示接受所有后缀，只有当need_file为True时有效
+
+    Returns:
+        list[str]: 可选路径列表
+    """
+
+    incomplete_path = Path(prefix)
+    dot_count = len(prefix) - len(prefix.rstrip("."))
+    # 当输入的最后一级以. .. / \结尾时，Path处理的结果就是目录前缀，反之需要获取父目录
+    complete_prefix = incomplete_path if prefix.endswith(("/", "/.", "\\", "\\.")) and dot_count <= 2 else incomplete_path.parent
+    # 在shell中解析输入
+    parser_result = run_command(f"echo {complete_prefix}", ignore_error=True, capture=True, echo=False, dry_run=False)
+
+    result: list[str] = []
+    if parser_result:
+        absolute_path = Path(parser_result.stdout.strip())
+        for path in absolute_path.iterdir():
+            # 在用户没有明确输入.时，不显示隐藏项目
+            if not prefix.endswith(".") and path.name.startswith("."):
+                continue
+            path_followed = path.resolve() if path.is_symlink() else path
+            if path_followed.is_file():
+                if not need_file:
+                    continue
+                if allowed_suffix and not path_followed.suffix in allowed_suffix:
+                    continue
+
+            path = complete_prefix / path.relative_to(absolute_path)
+            path_str = str(path)
+            if path.is_dir():
+                path_str += "/"
+            result.append(path_str)
+    return sorted(result)
+
+
+class _files_completer:
+    """支持文件补全"""
+
+    def __init__(self, allowed_suffix: str | list[str] = []) -> None:
+        if isinstance(allowed_suffix, str):
+            allowed_suffix = [allowed_suffix]
+        self.allowed_suffix = allowed_suffix
+
+    def __call__(self, prefix: str, **_: dict[str, typing.Any]) -> list[str]:
+        return _path_complete(prefix, True, self.allowed_suffix)
+
+
+def _dir_completer(prefix: str, **_: dict[str, typing.Any]) -> list[str]:
+    """支持目录补全"""
+
+    return _path_complete(prefix, False, [])
+
+
 class basic_configure:
     """配置基类
 
@@ -747,20 +808,22 @@ class basic_configure:
             parser (argparse.ArgumentParser): 命令行解析器
         """
 
-        parser.add_argument(
+        action = parser.add_argument(
             "--home",
             type=str,
             help="The home directory to find source trees. "
             "If home is a relative path, it will be converted to an absolute path relative to the cwd.",
             default=str(basic_configure().home),
         )
-        parser.add_argument(
+        setattr(action, "completer", _dir_completer)
+        action = parser.add_argument(
             "--export",
             dest="export_file",
             type=str,
             help="Export settings to specific file. The origin home path is saved to the configure file.",
         )
-        parser.add_argument(
+        setattr(action, "completer", _files_completer(".json"))
+        action = parser.add_argument(
             "--import",
             dest="import_file",
             type=str,
@@ -768,6 +831,7 @@ class basic_configure:
             "If the home in configure file is a a relative path, "
             "it will be converted to an absolute path relative to the directory of the configure file.",
         )
+        setattr(action, "completer", _files_completer(".json"))
         parser.add_argument(
             "--dry-run",
             dest="dry_run",

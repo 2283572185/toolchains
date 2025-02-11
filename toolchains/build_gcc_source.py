@@ -1,4 +1,3 @@
-import math
 import os
 import pathlib
 import typing
@@ -124,7 +123,7 @@ class configure(common.basic_configure):
         self.gdb = gdb
         self.gdbserver = gdbserver
         self.newlib = newlib
-        self.jobs = jobs or math.floor((os.cpu_count() or 1) * 1.5)
+        self.jobs = jobs or (os.cpu_count() or 1) + 2
         self.prefix_dir = pathlib.Path(prefix_dir) if prefix_dir else pathlib.Path.home()
 
     def check(self) -> None:

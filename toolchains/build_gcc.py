@@ -1,4 +1,9 @@
+#!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
+
 import argparse
+
+import argcomplete
 
 from . import common
 from .build_gcc_source import *
@@ -98,13 +103,18 @@ def main() -> None:
         default=default_config.newlib,
     )
     parser.add_argument(
+        "-j",
         "--jobs",
         type=int,
-        help="Number of concurrent jobs at build time. Use 1.5 times of cpu cores by default.",
+        help="Number of concurrent jobs at build time. Use cpu cores + 2 by default.",
         default=default_config.jobs,
     )
-    parser.add_argument("--prefix-dir", type=str, help="The dir contains all the prefix dir.", default=default_config.prefix_dir)
+    parser.add_argument(
+        "--prefix", dest="prefix_dir", type=str, help="The dir contains all the prefix dir.", default=default_config.prefix_dir
+    )
     parser.add_argument("--dump", action="store_true", help="Print support platforms and exit.")
+
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
     _check_input(args)
 

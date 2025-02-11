@@ -1,5 +1,10 @@
+#!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
+
 import argparse
 import pathlib
+
+import argcomplete
 
 from . import common
 from .download_source import *
@@ -98,7 +103,7 @@ def download(config: configure) -> None:
             break
     else:
         _exist_echo("gcc_contrib")
-    common.toolchains_success("Download libs successfully.")
+    print(common.toolchains_success("Download libs successfully."))
 
 
 def update(config: configure) -> None:
@@ -217,7 +222,7 @@ def remove(config: configure, libs: list[str]) -> None:
     """
     for lib in libs:
         remove_specific_lib(config, lib)
-    common.toolchains_success("Remove libs successfully.")
+    print(common.toolchains_success("Remove libs successfully."))
 
 
 def _check_input(args: argparse.Namespace) -> None:
@@ -314,6 +319,7 @@ def main() -> None:
         choices=all_lib_list.all_lib_list,
     )
 
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
     # 检查输入是否合法
     _check_input(args)
