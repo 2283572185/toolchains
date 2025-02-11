@@ -1,6 +1,5 @@
-import os
-import shutil
 from collections.abc import Callable
+from pathlib import Path
 
 from . import common
 
@@ -63,7 +62,7 @@ arch_32_bit_list = ("arm", "armeb", "i486", "i686", "risc32", "risc32be")
 
 
 def _get_specific_environment(self: "environment", host: str | None = None, target: str | None = None) -> "environment":
-    return environment(self.build, host, target, self.home, self.jobs, self.prefix_dir)
+    return environment(self.build, host, target, str(self.home), self.jobs, str(self.prefix_dir))
 
 
 class environment(common.basic_environment):
@@ -74,18 +73,18 @@ class environment(common.basic_environment):
     target: str  # target平台
     toolchain_type: str  # 工具链类别
     cross_compiler: bool  # 是否是交叉编译器
-    prefix: str  # 工具链安装位置
-    lib_prefix: str  # 安装后库目录的前缀
+    prefix: Path  # 工具链安装位置
+    lib_prefix: Path  # 安装后库目录的前缀
     symlink_list: list[str]  # 构建过程中创建的软链接表
-    share_dir: str  # 安装后share目录
-    gdbinit_path: str  # 安装后.gdbinit文件所在路径
-    lib_dir_list: dict[str, str]  # 所有库所在目录
+    share_dir: Path  # 安装后share目录
+    gdbinit_path: Path  # 安装后.gdbinit文件所在路径
+    lib_dir_list: dict[str, Path]  # 所有库所在目录
     tool_prefix: str  # 工具的前缀，如x86_64-w64-mingw32-
     dll_name_list: list[str]  # 该平台上需要保留调试符号的dll列表
-    python_config_path: str  # python_config.sh所在路径
+    python_config_path: Path  # python_config.sh所在路径
     host_32_bit: bool  # 宿主环境是否是32位的
     rpath_option: str  # 设置rpath的链接选项
-    rpath_dir: str  # rpath所在目录
+    rpath_dir: Path  # rpath所在目录
     freestanding: bool  # 是否为独立工具链
     host_field: common.triplet_field  # host平台各个域
     target_field: common.triplet_field  # target平台各个域
@@ -116,22 +115,22 @@ class environment(common.basic_environment):
         name_without_version = (f"{self.host}-host-{self.target}-target" if self.cross_compiler else f"{self.host}-native") + "-gcc"
         super().__init__(build, "15.0.0", name_without_version, home, jobs, prefix_dir)
 
-        self.prefix = os.path.join(prefix_dir, self.name)
-        self.lib_prefix = os.path.join(self.prefix, self.target) if self.cross_compiler else self.prefix
+        self.prefix = self.prefix_dir / self.name
+        self.lib_prefix = self.prefix / self.target if self.cross_compiler else self.prefix
         self.symlink_list = []
-        self.share_dir = os.path.join(self.prefix, "share")
-        self.gdbinit_path = os.path.join(self.share_dir, ".gdbinit")
+        self.share_dir = self.prefix / "share"
+        self.gdbinit_path = self.share_dir / ".gdbinit"
 
         self.lib_dir_list = {}
         self.host_field = common.triplet_field(self.host)
         self.target_field = common.triplet_field(self.target)
         for lib in lib_list:
-            lib_dir = os.path.join(self.home, lib)
+            lib_dir = self.home / lib
             match lib:
                 # 支持使用厂商修改过的源代码
                 case "glibc" | "linux" if self.target_field.vendor != "unknown":
                     vendor = self.target_field.vendor[1]
-                    custom_lib_dir = os.path.join(self.home, f"{lib}-{vendor}")
+                    custom_lib_dir = self.home / f"{lib}-{vendor}"
                     if common.check_lib_dir(lib, custom_lib_dir, False):
                         lib_dir = custom_lib_dir
                     else:
@@ -143,12 +142,12 @@ class environment(common.basic_environment):
         self.tool_prefix = f"{self.target}-" if self.cross_compiler else ""
         self.dll_name_list = dll_name_list[self.target_field.os]
 
-        self.python_config_path = os.path.join(self.current_dir, "python_config.sh")
+        self.python_config_path = self.root_dir.parent / "script" / "python_config.sh"
         self.host_32_bit = self.host.startswith(arch_32_bit_list)
         lib_name = f'lib{"32" if self.host_32_bit else "64"}'
-        self.rpath_dir = os.path.join(self.prefix, lib_name)
-        lib_name = os.path.join("'$ORIGIN'", "..", lib_name)
-        self.rpath_option = f'"-Wl,-rpath={lib_name}"'
+        self.rpath_dir = self.prefix / lib_name
+        lib_path = Path("'$ORIGIN'") / ".." / lib_name
+        self.rpath_option = f'"-Wl,-rpath={lib_path}"'
         # 加载工具链
         if self.toolchain_type in ("cross", "canadian", "canadian cross"):
             _get_specific_environment(self).register_in_env()
@@ -166,6 +165,7 @@ class environment(common.basic_environment):
         Args:
             lib (str): 要构建的库
         """
+
         assert lib in lib_list
         build_dir = self.lib_dir_list[lib]
         need_make_build_dir = True  # 是否需要建立build目录
@@ -173,9 +173,9 @@ class environment(common.basic_environment):
             case "python-embed" | "linux":
                 need_make_build_dir = False  # 跳过python-embed和linux，python-embed仅需要生成静态库，linux有独立的编译方式
             case "expat":
-                build_dir = os.path.join(build_dir, "expat", "build")  # expat项目内嵌套了一层目录
+                build_dir = build_dir / "expat" / "build"  # expat项目内嵌套了一层目录
             case _:
-                build_dir = os.path.join(build_dir, "build")
+                build_dir = build_dir / "build"
 
         if need_make_build_dir:
             common.mkdir(build_dir, remove_files)
@@ -183,8 +183,8 @@ class environment(common.basic_environment):
         _ = common.chdir_guard(build_dir)
         # 添加构建gdb所需的环境变量
         if lib == "binutils":
-            os.environ["ORIGIN"] = "$$ORIGIN"
-            os.environ["PYTHON_EMBED_PACKAGE"] = self.lib_dir_list["python-embed"]  # mingw下编译带python支持的gdb需要
+            common.add_environ("ORIGIN", "$$ORIGIN")
+            common.add_environ("PYTHON_EMBED_PACKAGE", self.lib_dir_list["python-embed"])  # mingw下编译带python支持的gdb需要
 
     def configure(self, *option: str) -> None:
         """自动对库进行配置
@@ -192,6 +192,7 @@ class environment(common.basic_environment):
         Args:
             option (tuple[str, ...]): 配置选项
         """
+
         options = " ".join(("", *option))
         # 编译glibc时LD_LIBRARY_PATH中不能包含当前路径，此处直接清空LD_LIBRARY_PATH环境变量
         common.run_command(f"../configure {options} LD_LIBRARY_PATH=")
@@ -202,6 +203,7 @@ class environment(common.basic_environment):
         Args:
             target (tuple[str, ...]): 要编译的目标
         """
+
         targets = " ".join(("", *target))
         common.run_command(f"make {targets} -j {self.jobs}", ignore_error)
 
@@ -211,9 +213,10 @@ class environment(common.basic_environment):
         Args:
             target (tuple[str, ...]): 要安装的目标
         """
+
         if target != ():
             targets = " ".join(("", *target))
-        elif os.getcwd() == os.path.join(self.lib_dir_list["gcc"], "build"):
+        elif Path.cwd() == self.lib_dir_list["gcc"] / "build":
             common.run_command(f"make install-strip -j {self.jobs}", ignore_error)
             targets = " ".join(dll_target_list)
         else:
@@ -222,40 +225,42 @@ class environment(common.basic_environment):
 
     def strip_debug_symbol(self) -> None:
         """剥离动态库的调试符号到独立的符号文件"""
-        for dir in filter(lambda dir: dir.startswith("lib"), os.listdir(self.lib_prefix)):
-            lib_dir = os.path.join(self.lib_prefix, dir)
-            for file in filter(lambda file: file in self.dll_name_list, os.listdir(lib_dir)):
-                dll_path = os.path.join(lib_dir, file)
-                symbol_path = dll_path + ".debug"
+
+        for lib_dir in filter(lambda dir: dir.name.startswith("lib"), self.lib_prefix.iterdir()):
+            for dll_path in filter(lambda file: file.name in self.dll_name_list, lib_dir.iterdir()):
+                symbol_path = dll_path.with_suffix(dll_path.suffix + ".debug")
                 common.run_command(f"{self.tool_prefix}objcopy --only-keep-debug {dll_path} {symbol_path}")
                 common.run_command(f"{self.tool_prefix}strip {dll_path}")
                 common.run_command(f"{self.tool_prefix}objcopy --add-gnu-debuglink={symbol_path} {dll_path}")
 
     def copy_gdbinit(self) -> None:
         """复制.gdbinit文件"""
-        gdbinit_src_path = os.path.join(self.current_dir, ".gdbinit")
+
+        gdbinit_src_path = self.root_dir / ".gdbinit"
         common.copy(gdbinit_src_path, self.gdbinit_path)
 
     def build_libpython(self) -> None:
         """创建libpython.a"""
+
         lib_dir = self.lib_dir_list["python-embed"]
-        lib_path = os.path.join(lib_dir, "libpython.a")
-        def_path = os.path.join(lib_dir, "libpython.def")
-        if not os.path.exists(lib_path):
-            dll_list = tuple(filter(lambda dll: dll.startswith("python") and dll.endswith(".dll"), os.listdir(lib_dir)))
-            assert dll_list != (), f'Cannot find python*.dll in "{lib_dir}" directory.'
-            assert len(dll_list) == 1, f'Find too many python*.dll in "{lib_dir}" directory:\n{" ".join(dll_list)}'
-            dll_path = os.path.join(lib_dir, dll_list[0])
+        lib_path = lib_dir / "libpython.a"
+        def_path = lib_dir / "libpython.def"
+        if not lib_path.exists():
+            dll_list = list(filter(lambda dll: dll.name.startswith("python") and dll.name.endswith(".dll"), lib_dir.iterdir()))
+            assert dll_list != [], f'Cannot find python*.dll in "{lib_dir}" directory.'
+            assert len(dll_list) == 1, f'Find too many python*.dll in "{lib_dir}" directory.'
+            dll_path = lib_dir / dll_list[0]
             # 工具链最后运行在宿主平台上，故而应该使用宿主平台的工具链从.lib文件制作.a文件
             common.run_command(f"{self.host}-pexports {dll_path} > {def_path}")
             common.run_command(f"{self.host}-dlltool -D {dll_path} -d {def_path} -l {lib_path}")
 
     def copy_python_embed_package(self) -> None:
         """复制python embed package到安装目录"""
-        for file in filter(lambda x: x.startswith("python"), os.listdir(self.lib_dir_list["python-embed"])):
+
+        for file in filter(lambda x: x.name.startswith("python"), self.lib_dir_list["python-embed"].iterdir()):
             common.copy(
-                os.path.join(self.lib_dir_list["python-embed"], file),
-                os.path.join(self.bin_dir, file),
+                file,
+                self.bin_dir / file.name,
             )
 
     def package(self, need_gdbinit: bool = True, need_python_embed_package: bool = False) -> None:
@@ -265,9 +270,10 @@ class environment(common.basic_environment):
             need_gdbinit (bool, optional): 是否需要打包.gdbinit文件. 默认需要.
             need_python_embed_package (bool, optional): 是否需要打包python embed package. 默认不需要.
         """
+
         if self.toolchain_type == "native":
             # 本地工具链需要添加cc以代替系统提供的cc
-            os.symlink(os.path.join(self.bin_dir, "gcc"), os.path.join(self.bin_dir, "cc"))
+            common.symlink(self.bin_dir / "gcc", self.bin_dir / "cc")
         if need_gdbinit:
             self.copy_gdbinit()
         if need_python_embed_package:
@@ -277,83 +283,86 @@ class environment(common.basic_environment):
 
     def remove_unused_glibc_file(self) -> None:
         """移除不需要的glibc文件"""
+
         for dir in (
             "etc",
             "libexec",
             "sbin",
             "share",
             "var",
-            os.path.join(self.lib_prefix, "lib", "gconv"),
-            os.path.join(self.lib_prefix, "lib", "audit"),
+            "lib/gconv",
+            "lib/audit",
         ):
-            common.remove_if_exists(os.path.join(self.lib_prefix, dir))
+            common.remove_if_exists(self.lib_prefix / dir)
 
     def strip_glibc_file(self) -> None:
         """剥离调试符号"""
-        strip = f"{self.tool_prefix}strip"
-        lib_dir = os.path.join(self.lib_prefix, "lib")
-        common.run_command(f"{strip} {os.path.join(lib_dir, '*.so')}", True)
 
-    def change_glibc_ldscript(self, arch: str = "") -> None:
+        strip = f"{self.tool_prefix}strip"
+        common.run_command(f"{strip} {self.lib_prefix / 'lib' / '*.so'}", True)
+
+    def change_glibc_ldscript(self, arch: str | None = None) -> None:
         """替换带有绝对路径的链接器脚本
 
         Args:
-            arch (str, optional): glibc链接器脚本的arch字段，若为""则从target中推导. 默认为 "".
+            arch (str | None, optional): glibc链接器脚本的arch字段，若为None则从target中推导. 默认为 None.
                                   手动设置arch可以用于需要额外字段来区分链接器脚本的情况
         """
-        arch = arch if arch != "" else self.target[: self.target.find("-")]
-        dst_dir = os.path.join(self.lib_prefix, "lib")
-        for file in filter(lambda file: file.startswith(f"{arch}-lib"), os.listdir(self.current_dir)):
-            dst_path = os.path.join(dst_dir, file[len(f"{arch}-") :])
-            src_path = os.path.join(self.current_dir, file)
-            common.copy(src_path, dst_path)
 
-    def adjust_glibc(self, arch: str = "") -> None:
+        arch = arch or self.target_field.arch
+        dst_dir = self.lib_prefix / "lib"
+        for file in filter(lambda file: file.name.startswith(f"{arch}-lib"), self.script_dir.iterdir()):
+            common.copy(file, dst_dir / file.name[len(f"{arch}-") :])
+
+    def adjust_glibc(self, arch: str | None = None) -> None:
         """调整glibc
         Args:
-            arch (str, optional): glibc链接器脚本的arch字段，若为""则自动推导. 默认为 "".
+            arch (str | None, optional): glibc链接器脚本的arch字段，若为None则自动推导. 默认为 None.
         """
+
         self.remove_unused_glibc_file()
         self.strip_glibc_file()
         self.change_glibc_ldscript(arch)
 
     def solve_libgcc_limits(self) -> None:
         """解决libgcc的limits.h中提供错误MB_LEN_MAX的问题"""
-        libgcc_prefix = os.path.join(self.prefix, "lib", "gcc", self.target)
-        include_dir = os.path.join(libgcc_prefix, os.listdir(libgcc_prefix)[0], "include")
-        with open(os.path.join(include_dir, "limits.h"), "a") as file:
+
+        libgcc_prefix = self.prefix / "lib" / "gcc" / self.target
+        include_path = next(libgcc_prefix.iterdir()) / "include" / "limits.h"
+        with include_path.open("a") as file:
             file.writelines(("#undef MB_LEN_MAX\n", "#define MB_LEN_MAX 16\n"))
 
     def copy_from_cross_toolchain(self) -> None:
         """从交叉工具链中复制libc、libstdc++、libgcc、linux头文件、gdbserver等到本工具链中"""
+
         # 从交叉工具链中复制libc、libstdc++、linux头文件等到本工具链中
         cross_toolchain = _get_specific_environment(self, target=self.target)
-        for dir in filter(lambda x: x != "bin", os.listdir(cross_toolchain.lib_prefix)):
-            common.copy(os.path.join(cross_toolchain.lib_prefix, dir), os.path.join(self.lib_prefix, dir))
+        for dir in filter(lambda x: x.name != "bin", cross_toolchain.lib_prefix.iterdir()):
+            common.copy(dir, self.lib_prefix / dir.name)
 
         # 从交叉工具链中复制libgcc到本工具链中
-        common.copy(os.path.join(cross_toolchain.prefix, "lib", "gcc"), os.path.join(self.prefix, "lib", "gcc"))
+        common.copy(cross_toolchain.prefix / "lib" / "gcc", self.prefix / "lib" / "gcc")
 
         # 复制gdbserver
-        src_path = os.path.join(cross_toolchain.bin_dir, "gdbserver")
-        dst_path = os.path.join(self.bin_dir, "gdbserver")
-        common.copy_if_exist(src_path, dst_path)
+        common.copy_if_exist(cross_toolchain.bin_dir / "gdbserver", self.bin_dir / "gdbserver")
 
 
-def get_mingw_lib_prefix_list(env: environment) -> dict[str, str]:
+def get_mingw_lib_prefix_list(env: environment) -> dict[str, Path]:
     """获取mingw平台下gdb所需包的安装路径
 
     Args:
         env (environment): gcc环境
 
     Returns:
-        dict[str,str]: {包名:安装路径}
+        dict[str,Path]: {包名:安装路径}
     """
-    return {lib: os.path.join(env.home, lib, "install") for lib in ("gmp", "expat", "mpfr")}
+
+    return {lib: env.home / lib / "install" for lib in ("gmp", "expat", "mpfr")}
 
 
 def build_mingw_gdb_requirements(env: environment) -> None:
     """编译安装libgmp, libexpat, libmpfr"""
+
     lib_prefix_list = get_mingw_lib_prefix_list(env)
     for lib, prefix in lib_prefix_list.items():
         env.enter_build_dir(lib)
@@ -372,6 +381,7 @@ def get_mingw_gdb_lib_options(env: environment) -> list[str]:
     Args:
         env (environment): gcc环境
     """
+
     lib_prefix_list = get_mingw_lib_prefix_list(env)
     prefix_selector: Callable[[str], str] = lambda lib: f"--with-{lib}=" if lib in ("gmp", "mpfr") else f"--with-lib{lib}-prefix="
     return [prefix_selector(lib) + f"{lib_prefix_list[lib]}" for lib in ("gmp", "mpfr", "expat")]
@@ -379,12 +389,11 @@ def get_mingw_gdb_lib_options(env: environment) -> list[str]:
 
 def copy_pretty_printer(env: environment) -> None:
     """从x86_64-linux-gnu本地工具链中复制pretty-printer到不带newlib的独立工具链"""
+
     native_gcc = _get_specific_environment(env)
-    for dir in os.listdir(native_gcc.share_dir):
-        src_dir = os.path.join(native_gcc.share_dir, dir)
-        dst_dir = os.path.join(env.share_dir, dir)
-        if dir[0:3] == "gcc" and os.path.isdir(src_dir):
-            shutil.copytree(src_dir, dst_dir)
+    for src_dir in native_gcc.share_dir.iterdir():
+        if src_dir.name.startswith("gcc") and src_dir.is_dir():
+            common.copy(src_dir, env.share_dir / src_dir.name)
             return
 
 
@@ -402,7 +411,7 @@ class cross_environment:
     linux_option: list[str]  # linux相关选项
     gdbserver_option: list[str]  # gdbserver相关选项
     full_build: bool  # 是否进行完整自举流程
-    glibc_phony_stubs_path: str  # glibc占位文件所在路径
+    glibc_phony_stubs_path: Path  # glibc占位文件所在路径
     adjust_glibc_arch: str  # 调整glibc链接器脚本时使用的架构名
     need_gdb: bool  # 是否需要编译gdb
     need_gdbserver: bool  # 是否需要编译gdbserver
@@ -432,10 +441,6 @@ class cross_environment:
             home (str): 源代码树搜索主目录. 默认为$HOME.
             jobs (int): 并发构建数. 默认为cpu核心数*1.5再向下取整.
         """
-        if not os.path.exists(home) or not os.path.isdir(home):
-            raise FileNotFoundError
-        if jobs < 1:
-            raise ValueError
 
         self.env = environment(build, host, target, home, jobs, prefix_dir)
         self.host_os = self.env.host_field.os
@@ -502,12 +507,13 @@ class cross_environment:
         # Linux到其他平台交叉和Windows到Linux交叉需要完整编译
         self.full_build = self.host_os == "linux" or self.target_os == "linux" and self.target_arch in ("i686", "x86_64")
         # 编译不完整libgcc时所需的stubs.h所在路径
-        self.glibc_phony_stubs_path = os.path.join(self.env.lib_prefix, "include", "gnu", "stubs.h")
+        self.glibc_phony_stubs_path = self.env.lib_prefix / "include" / "gnu" / "stubs.h"
         # 由相关函数自动推动架构名
         self.adjust_glibc_arch = ""
 
     def _after_build_gcc(self) -> None:
         """在编译完gcc后完成收尾工作"""
+
         # 从完整工具链复制文件
         if not self.full_build:
             self.env.copy_from_cross_toolchain()
@@ -527,16 +533,17 @@ class cross_environment:
             gcc = _get_specific_environment(self.env, target=self.env.host)
             if self.host_os == "linux":
                 for dll in ("libstdc++.so.6", "libgcc_s.so.1"):
-                    shutil.copy(os.path.join(gcc.rpath_dir, dll), self.env.rpath_dir)
+                    common.copy(gcc.rpath_dir / dll, self.env.rpath_dir)
             else:
                 for dll in ("libstdc++-6.dll", "libgcc_s_seh-1.dll"):
-                    shutil.copy(os.path.join(gcc.lib_prefix, "lib", dll), self.env.bin_dir)
+                    common.copy(gcc.lib_prefix / "lib" / dll, self.env.bin_dir)
 
         # 打包工具链
         self.env.package(self.need_gdb, self.need_gdb and self.host_os == "w64")
 
     def _full_build_linux(self) -> None:
         """完整自举target为linux的gcc"""
+
         # 编译binutils，如果启用gdb则一并编译
         self.env.enter_build_dir("binutils")
         self.env.configure(*self.basic_option, *self.gdb_option)
@@ -585,6 +592,7 @@ class cross_environment:
 
     def _full_build_mingw(self) -> None:
         """完整自举target为mingw的gcc"""
+
         # 编译binutils，如果启用gdb则一并编译
         self.env.enter_build_dir("binutils")
         self.env.configure(*self.basic_option, *self.gdb_option)
@@ -616,12 +624,13 @@ class cross_environment:
         self.env.make()
         self.env.install()
         # 添加target前缀
-        common.rename(os.path.join(self.env.bin_dir, "pexports"), os.path.join(self.env.bin_dir, f"{self.env.target}-pexports"))
+        common.rename(self.env.bin_dir / "pexports", self.env.bin_dir / f"{self.env.target}-pexports")
         # 完成后续工作
         self._after_build_gcc()
 
     def _full_build_freestanding(self) -> None:
         """完整自举target为独立平台的gcc"""
+
         # 编译binutils，如果启用gdb则一并编译
         self.env.enter_build_dir("binutils")
         self.env.configure(*self.basic_option, *self.gdb_option)
@@ -658,6 +667,7 @@ class cross_environment:
 
     def _partial_build(self) -> None:
         """编译gcc而无需自举"""
+
         # 编译binutils，如果启用gdb则一并编译
         self.env.enter_build_dir("binutils")
         self.env.configure(*self.basic_option, *self.gdb_option)
@@ -675,10 +685,12 @@ class cross_environment:
 
     def build(self) -> None:
         """构建gcc工具链"""
+
         # 编译gdb依赖库
         if self.need_gdb and self.host_os == "w64":
             build_mingw_gdb_requirements(self.env)
         if self.full_build:
+            assert self.target_os in ("linux", "w64", "unknown")
             match (self.target_os):
                 case "linux":
                     self._full_build_linux()

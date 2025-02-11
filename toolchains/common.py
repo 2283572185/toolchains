@@ -898,7 +898,7 @@ class basic_configure:
                     assert mapped_key == key, f"The encode_name_map maps the param {key} to a noexist attribute."
                 # 将集合转化为列表
                 case set():
-                    output_list[key] = list(typing.cast(set[typing.Any], value))
+                    output_list[key] = list(typing.cast(set[object], value))
                 # 将Path转化为字符串
                 case Path():
                     output_list[key] = str(value)
