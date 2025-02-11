@@ -138,7 +138,6 @@ def update(config: configure) -> None:
     # 更新非git包
     for lib in config.extra_lib_list:
         lib_version = extra_lib_version[lib if lib != "python-embed" else "python"]
-        need_download = _check_version_echo(lib, lib_version.check_version(config.home / all_lib_list.extra_lib_list[lib].version_dir))
         need_download = _check_version_echo(
             lib, lib_version.check_version(config.home / all_lib_list.get_prefer_extra_lib_list(config, lib).version_dir)
         )
@@ -146,7 +145,7 @@ def update(config: configure) -> None:
             download_specific_extra_lib(config, lib)
             after_download_list.after_download_specific_lib(config, lib)
 
-    common.toolchains_success("Update libs successfully.")
+    print(common.toolchains_success("Update libs successfully."))
 
 
 def auto_download(config: configure) -> None:
@@ -333,7 +332,7 @@ def main() -> None:
         case "auto":
             auto_download(current_config)
         case "system":
-            print(f"Please install following system libs: {' '.join(get_system_lib_list())}")
+            print(common.toolchains_info(f"Please install following system libs: \n{' '.join(get_system_lib_list())}"))
         case "remove":
             remove(current_config, args.remove or all_lib_list.all_lib_list)
         case _:
