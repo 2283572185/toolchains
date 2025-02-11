@@ -283,6 +283,13 @@ def main() -> None:
             help="Extra non-git libs to install.",
             choices=all_lib_list.optional_extra_lib_list,
         )
+        subparser.add_argument(
+            "--remote",
+            type=str,
+            help="The remote repository preferred to use. The preferred remote will be used to accelerate download when possible.",
+            default=default_config.git_remote,
+            choices=git_prefer_remote,
+        )
     for subparser in (download_parser, auto_parser):
         subparser.add_argument(
             "--glibc", dest="glibc_version", type=str, help="The version of glibc of target platform.", default=default_config.glibc_version
@@ -297,13 +304,6 @@ def main() -> None:
         subparser.add_argument("--depth", type=int, help="The depth of shallow clone.", default=default_config.shallow_clone_depth)
         subparser.add_argument(
             "--ssh", type=bool, help="Whether to use ssh when cloning git repositories from github.", default=default_config.git_use_ssh
-        )
-        subparser.add_argument(
-            "--remote",
-            type=str,
-            help="The git remote preferred to use. The preferred remote will be used to accelerate git operation when possible.",
-            default=default_config.git_remote,
-            choices=git_prefer_remote,
         )
 
     # 添加各个子命令专属选项
