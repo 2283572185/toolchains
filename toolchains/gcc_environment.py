@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from enum import StrEnum
 from pathlib import Path
 
 from . import common
@@ -65,13 +66,29 @@ def _get_specific_environment(self: "environment", host: str | None = None, targ
     return environment(self.build, host, target, str(self.home), self.jobs, str(self.prefix_dir))
 
 
+class toolchain_type(StrEnum):
+    """工具链类型枚举
+
+    Attributes:
+        native        : 本地工具链，build == host == target
+        cross         : 交叉工具链，build == host != target
+        canadian      : 加拿大工具链，build != host == target
+        canadian_cross: 加拿大交叉工具链，build != host != target
+    """
+
+    native = "native"
+    cross = "cross"
+    canadian = "canadian"
+    canadian_cross = "canadian cross"
+
+
 class environment(common.basic_environment):
     """gcc构建环境"""
 
     build: str  # build平台
     host: str  # host平台
     target: str  # target平台
-    toolchain_type: str  # 工具链类别
+    toolchain_type: "toolchain_type"  # 工具链类别
     cross_compiler: bool  # 是否是交叉编译器
     prefix: Path  # 工具链安装位置
     lib_prefix: Path  # 安装后库目录的前缀
@@ -103,13 +120,13 @@ class environment(common.basic_environment):
         self.target = target or self.host
         # 鉴别工具链类别
         if self.build == self.host == self.target:
-            self.toolchain_type = "native"
+            self.toolchain_type = toolchain_type.native
         elif self.build == self.host != self.target:
-            self.toolchain_type = "cross"
+            self.toolchain_type = toolchain_type.cross
         elif self.build != self.host == self.target:
-            self.toolchain_type = "canadian"
+            self.toolchain_type = toolchain_type.canadian
         else:
-            self.toolchain_type = "canadian cross"
+            self.toolchain_type = toolchain_type.canadian_cross
         self.cross_compiler = self.host != self.target
 
         name_without_version = (f"{self.host}-host-{self.target}-target" if self.cross_compiler else f"{self.host}-native") + "-gcc"
@@ -149,11 +166,11 @@ class environment(common.basic_environment):
         lib_path = Path("'$ORIGIN'") / ".." / lib_name
         self.rpath_option = f'"-Wl,-rpath={lib_path}"'
         # 加载工具链
-        if self.toolchain_type in ("cross", "canadian", "canadian cross"):
+        if self.toolchain_type in (toolchain_type.cross, toolchain_type.canadian, toolchain_type.canadian_cross):
             _get_specific_environment(self).register_in_env()
-        if self.toolchain_type in ("canadian", "canadian cross"):
+        if self.toolchain_type in (toolchain_type.canadian, toolchain_type.canadian_cross):
             _get_specific_environment(self, target=self.host).register_in_env()
-        if self.toolchain_type == "canadian cross":
+        if self.toolchain_type == toolchain_type.canadian_cross:
             _get_specific_environment(self, target=self.target).register_in_env()
         # 将自身注册到环境变量中
         self.register_in_env()
