@@ -184,16 +184,24 @@ def _run_command_echo(command: str | list[str], echo: bool) -> str | None:
     return toolchains_info(f"Run command: {command}") if echo else None
 
 
+_FILE: typing.TypeAlias = typing.IO[typing.Any] | None
+
+
 @support_dry_run(_run_command_echo)
 def run_command(
-    command: str | list[str], ignore_error: bool = False, capture: bool = False, echo: bool = True, dry_run: bool | None = None
+    command: str | list[str],
+    ignore_error: bool = False,
+    capture: bool | tuple[_FILE, _FILE] = False,
+    echo: bool = True,
+    dry_run: bool | None = None,
 ) -> subprocess.CompletedProcess[str] | None:
     """运行指定命令, 若不忽略错误, 则在命令执行出错时抛出RuntimeError, 反之打印错误码
 
     Args:
         command (str | list[str]): 要运行的命令，使用str则在shell内运行，使用list[str]则直接运行
         ignore_error (bool, optional): 是否忽略错误. 默认不忽略错误.
-        capture (bool, optional): 是否捕获命令输出，默认为不捕获.
+        capture (bool | tuple[_FILE, _FILE], optional): 是否捕获命令输出，默认为不捕获. 若为tuple则capture[0]和capture[1]分别为stdout和stderr.
+                                                      tuple中字段为None表示不捕获相应管道的数据，则相应数据会回显
         echo (bool, optional): 是否回显信息，设置为False将不回显任何信息，包括错误提示，默认为回显.
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
 
@@ -205,16 +213,19 @@ def run_command(
     """
 
     if capture:
-        pipe = subprocess.PIPE  # capture为True，不论是否回显都需要捕获输出
+        if capture == True:
+            stdout = stderr = subprocess.PIPE  # capture为True，不论是否回显都需要捕获输出
+        else:
+            stdout, stderr = capture  # 将输出捕获到传入的文件中
     elif echo:
-        pipe = None  # 回显而不捕获输出则正常输出
+        stdout = stderr = None  # 回显而不捕获输出则正常输出
     else:
-        pipe = subprocess.DEVNULL  # 不回显又不捕获输出则丢弃输出
+        stdout = stderr = subprocess.DEVNULL  # 不回显又不捕获输出则丢弃输出
     try:
         result = subprocess.run(
             command if isinstance(command, str) else " ".join(command),
-            stdout=pipe,
-            stderr=pipe,
+            stdout=stdout,
+            stderr=stderr,
             shell=isinstance(command, str),
             check=True,
             text=True,

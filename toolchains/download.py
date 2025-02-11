@@ -2,7 +2,9 @@
 # PYTHON_ARGCOMPLETE_OK
 
 import argparse
+import os
 import pathlib
+import tempfile
 
 import argcomplete
 
@@ -112,33 +114,36 @@ def update(config: configure) -> None:
     Args:
         config (configure): 源代码下载环境
     """
+
     # 更新git托管的源代码
     for lib in all_lib_list.get_prefer_git_lib_list(config):
         lib_dir = config.home / lib
         assert lib_dir.exists(), common.toolchains_error(f"Cannot find lib: {lib}")
-        for _ in range(config.network_try_times):
-            try:
-                result = common.run_command(f"git -C {lib_dir} fetch --dry-run", capture=True)
-                break
-            except Exception:
-                print(common.toolchains_warning(f"Fetch {lib} failed, retrying."))
-        else:
-            raise RuntimeError(common.toolchains_error(f"Fetch {lib} failed."))
-
-        if not common.command_dry_run.get():
-            assert result
-            if result.stderr.strip():
-                for _ in range(config.network_try_times):
-                    try:
-                        common.run_command(f"git -C {lib_dir} pull")
-                        break
-                    except Exception:
-                        print(common.toolchains_warning(f"Pull {lib} failed, retrying."))
-                else:
-                    raise RuntimeError(common.toolchains_error(f"Pull {lib} failed."))
-                after_download_list.after_download_specific_lib(config, lib)
+        with tempfile.TemporaryFile("r+") as file:
+            for _ in range(config.network_try_times):
+                try:
+                    common.run_command(f"git -C {lib_dir} fetch --dry-run", capture=(file, file))
+                    break
+                except Exception:
+                    print(common.toolchains_warning(f"Fetch {lib} failed, retrying."))
+                    file.truncate(0)
+                    file.seek(0, os.SEEK_SET)
             else:
-                _up_to_date_echo(lib)
+                raise RuntimeError(common.toolchains_error(f"Fetch {lib} failed."))
+
+            if not common.command_dry_run.get():
+                if file.tell():
+                    for _ in range(config.network_try_times):
+                        try:
+                            common.run_command(f"git -C {lib_dir} pull")
+                            break
+                        except Exception:
+                            print(common.toolchains_warning(f"Pull {lib} failed, retrying."))
+                    else:
+                        raise RuntimeError(common.toolchains_error(f"Pull {lib} failed."))
+                    after_download_list.after_download_specific_lib(config, lib)
+                else:
+                    _up_to_date_echo(lib)
 
     # 更新非git包
     for lib in config.extra_lib_list:
