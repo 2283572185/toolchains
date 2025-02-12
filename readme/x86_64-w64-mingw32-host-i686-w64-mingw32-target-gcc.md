@@ -20,6 +20,6 @@
 - g++
 - binutils
 - pexports
-- gdb (需要python3.12.3)
-- Python3.12.3 embed package
+- gdb (需要python3.13.2)
+- Python3.13.2 embed package
 - .gdbinit (位于share下)

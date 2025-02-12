@@ -9,7 +9,7 @@ from . import common
 
 
 class extra_lib_version(enum.StrEnum):
-    python = "3.13.1"
+    python = "3.13.2"
     iconv = "1.18"
     loongnix_linux = "4.19.190.8.22"
     loongnix_glibc = "2.28"

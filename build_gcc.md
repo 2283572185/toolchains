@@ -2,20 +2,22 @@
 
 ## 基本信息
 
-| 项目      | 版本         |
-| :-------- | :----------- |
-| OS        | Ubuntu 24.04 |
-| GCC       | 15.0.0       |
-| GDB       | 16.0.50      |
-| Binutils  | 2.42.50      |
-| Python    | 3.12.3       |
-| Glibc     | 2.39         |
-| Mingw-w64 | 10.0.0       |
-| PExports  | 0.47         |
-| Iconv     | 1.17         |
-| Gmp       | 6.2.1        |
-| Mpfr      | 4.1.0        |
-| Expat     | 2.5.0        |
+| 项目       | 版本         |
+| :--------- | :----------- |
+| OS         | Ubuntu 24.04 |
+| GCC        | 15.0.0       |
+| GDB        | 16.0.50      |
+| Binutils   | 2.42.50      |
+| Python $^*$ | 3.13.2       |
+| Glibc      | 2.39         |
+| Mingw-w64  | 10.0.0       |
+| PExports   | 0.47         |
+| Iconv      | 1.17         |
+| Gmp        | 6.2.1        |
+| Mpfr       | 4.1.0        |
+| Expat      | 2.5.0        |
+
+*: 在为Windows平台编译带有Python支持的GDB时需要下载Python包，Linux平台可以使用系统自带包
 
 ## 准备工作
 
@@ -43,20 +45,20 @@ cd ~/pexports
 autoreconf -if
 cd ~
 # 编译Windows下带有Python支持的gdb需要嵌入式Python3环境
-wget https://www.python.org/ftp/python/3.12.3/python-3.12.3-embed-amd64.zip -O python-embed.zip
+wget https://www.python.org/ftp/python/3.13.2/python-3.13.2-embed-amd64.zip -O python-embed.zip
 unzip -o python-embed.zip  python3*.dll python3*.zip *._pth -d python-embed -x python3.dll
 rm python-embed.zip
 # 下载Python源代码以提取include目录
-wget https://www.python.org/ftp/python/3.12.3/Python-3.12.3.tar.xz -O Python.tar.xz
+wget https://www.python.org/ftp/python/3.13.2/Python-3.13.2.tar.xz -O Python.tar.xz
 tar -xaf Python.tar.xz
 rm Python.tar.xz
-cd Python-3.12.3/Include
+cd Python-3.13.2/Include
 mkdir ~/python-embed/include
 cp -r * ~/python-embed/include
 cd ../PC
 cp pyconfig.h ~/python-embed/include
 cd ~
-rm -rf Python-3.12.3
+rm -rf Python-3.13.2
 wget https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.17.tar.gz -O iconv.tar.gz
 tar -axf iconv.tar.gz
 rm iconv.tar.gz

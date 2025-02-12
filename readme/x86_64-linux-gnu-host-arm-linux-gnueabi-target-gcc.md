@@ -17,5 +17,5 @@
 - gcc
 - g++
 - binutils
-- gdb (需要python3.12.3)
+- gdb (需要python3.13.2)
 - .gdbinit (位于share下)
