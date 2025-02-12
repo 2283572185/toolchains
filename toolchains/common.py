@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Self
 
 import colorama
-import psutil
 
 
 class _color(enum.StrEnum):
@@ -567,8 +566,11 @@ class basic_environment:
     name: str  # 工具链名
     prefix_dir: Path  # 安装路径
     bin_dir: Path  # 安装后可执行文件所在目录
+    compress_level: int # zstd压缩等级
 
-    def __init__(self, build: str, version: str, name_without_version: str, home: str, jobs: int, prefix_dir: str) -> None:
+    def __init__(
+        self, build: str, version: str, name_without_version: str, home: str, jobs: int, prefix_dir: str, compress_level: int
+    ) -> None:
         self.build = build
         self.version = version
         self.major_version = self.version.split(".")[0]
@@ -581,6 +583,7 @@ class basic_environment:
         self.readme_dir = self.root_dir.parent / "readme"
         self.prefix_dir = Path(prefix_dir)
         self.bin_dir = self.prefix_dir / self.name / "bin"
+        self.compress_level = compress_level
 
     def compress(self, name: str | None = None) -> None:
         """压缩构建完成的工具链
@@ -591,9 +594,9 @@ class basic_environment:
 
         _ = chdir_guard(self.home)
         name = name or self.name
-        run_command(f"tar -cf {name}.tar {name}")
-        memory_MB = psutil.virtual_memory().available // 1048576 + 3072
-        run_command(f"xz -fev9 -T 0 --memlimit={memory_MB}MiB {name}.tar")
+        add_environ("ZSTD_CLEVEL", str(self.compress_level))
+        add_environ("ZSTD_NBTHREADS", str(self.jobs))
+        run_command(f"tar -caf {name}.tar.zst {name}")
 
     def register_in_env(self) -> None:
         """注册安装路径到环境变量"""

@@ -32,6 +32,7 @@ def check_triplet(host: str, target: str) -> None:
 
 def _check_input(args: argparse.Namespace) -> None:
     assert args.jobs > 0, f"Invalid jobs: {args.jobs}."
+    assert 1 <= args.compress_level <= 19, f"Invalid compress level: {args.compress_level}"
     check_triplet(args.host, support_platform_list.target_list[0] if args.dump else args.target)
 
 
@@ -50,6 +51,7 @@ def build_specific_gcc(
 
     config_list = vars(config)
     del config_list["_origin_home_path"]
+    del config_list["_args"]
     env = environment(host=host, target=target, **config_list)
     modifier_list.modify(env, target)
     env.build()
@@ -106,11 +108,18 @@ def main() -> None:
         "-j",
         "--jobs",
         type=int,
-        help="Number of concurrent jobs at build time. Use cpu cores + 2 by default.",
+        help="Number of concurrent jobs at build time.",
         default=default_config.jobs,
     )
     parser.add_argument(
         "--prefix", dest="prefix_dir", type=str, help="The dir contains all the prefix dir.", default=default_config.prefix_dir
+    )
+    parser.add_argument(
+        "--compress",
+        dest="compress_level",
+        type=int,
+        help="The compress level of zstd when packing. Support 1~19.",
+        default=default_config.compress_level,
     )
     parser.add_argument("--dump", action="store_true", help="Print support platforms and exit.")
 

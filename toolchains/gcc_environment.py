@@ -63,7 +63,7 @@ arch_32_bit_list = ("arm", "armeb", "i486", "i686", "risc32", "risc32be")
 
 
 def _get_specific_environment(self: "environment", host: str | None = None, target: str | None = None) -> "environment":
-    return environment(self.build, host, target, str(self.home), self.jobs, str(self.prefix_dir))
+    return environment(self.build, host, target, str(self.home), self.jobs, str(self.prefix_dir), self.compress_level)
 
 
 class toolchain_type(StrEnum):
@@ -107,13 +107,7 @@ class environment(common.basic_environment):
     target_field: common.triplet_field  # target平台各个域
 
     def __init__(
-        self,
-        build: str,
-        host: None | str,
-        target: None | str,
-        home: str,
-        jobs: int,
-        prefix_dir: str,
+        self, build: str, host: None | str, target: None | str, home: str, jobs: int, prefix_dir: str, compress_level: int
     ) -> None:
         self.build = build
         self.host = host or build
@@ -130,7 +124,7 @@ class environment(common.basic_environment):
         self.cross_compiler = self.host != self.target
 
         name_without_version = (f"{self.host}-host-{self.target}-target" if self.cross_compiler else f"{self.host}-native") + "-gcc"
-        super().__init__(build, "15.0.0", name_without_version, home, jobs, prefix_dir)
+        super().__init__(build, "15.0.0", name_without_version, home, jobs, prefix_dir, compress_level)
 
         self.prefix = self.prefix_dir / self.name
         self.lib_prefix = self.prefix / self.target if self.cross_compiler else self.prefix
@@ -445,6 +439,7 @@ class cross_environment:
         home: str,
         jobs: int,
         prefix_dir: str,
+        compress_level: int,
     ) -> None:
         """gcc交叉工具链对象
 
@@ -455,11 +450,12 @@ class cross_environment:
             gdb (bool): 是否启用gdb
             gdbserver (bool): 是否启用gdbserver
             newlib (bool): 是否启用newlib, 仅对独立工具链有效
-            home (str): 源代码树搜索主目录. 默认为$HOME.
-            jobs (int): 并发构建数. 默认为cpu核心数*1.5再向下取整.
+            home (str): 源代码树搜索主目录
+            jobs (int): 并发构建数
+            compress_level (int): zstd压缩等级
         """
 
-        self.env = environment(build, host, target, home, jobs, prefix_dir)
+        self.env = environment(build, host, target, home, jobs, prefix_dir, compress_level)
         self.host_os = self.env.host_field.os
         self.target_os = self.env.target_field.os
         self.target_arch = self.env.target_field.arch
