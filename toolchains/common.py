@@ -307,21 +307,7 @@ def copy(src: Path, dst: Path, overwrite: bool = True, follow_symlinks: bool = F
         shutil.copyfile(src, dst, follow_symlinks=follow_symlinks)
 
 
-def _copy_if_exist_echo(src: Path, dst: Path) -> str:
-    """在复制文件或目录时回显信息
-
-    Args:
-        src (Path): 源路径
-        dst (Path): 目标路径
-
-    Returns:
-        str: 回显信息
-    """
-
-    return toolchains_info(f"Copy {src} -> {dst} if src exists.")
-
-
-@support_dry_run(_copy_if_exist_echo)
+@support_dry_run()
 def copy_if_exist(src: Path, dst: Path, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
     """如果文件或目录存在则复制文件或目录
 
@@ -365,20 +351,7 @@ def remove(path: Path, dry_run: bool | None = None) -> None:
         os.remove(path)
 
 
-def _remove_if_exists_echo(path: Path) -> str:
-    """在删除指定路径时回显信息
-
-    Args:
-        path (Path): 要删除的路径
-
-    Returns:
-        str: 回显信息
-    """
-
-    return toolchains_info(f"Remove {path} if path exists.")
-
-
-@support_dry_run(_remove_if_exists_echo)
+@support_dry_run()
 def remove_if_exists(path: Path, dry_run: bool | None = None) -> None:
     """如果指定路径存在则删除指定路径
 
