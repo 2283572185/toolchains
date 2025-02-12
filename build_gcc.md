@@ -103,7 +103,7 @@ cd ~/binutils
 mkdir build
 cd build
 export ORIGIN='$$ORIGIN'
-../configure --prefix=$PREFIX --disable-werror --enable-nls --with-system-gdbinit=$PREFIX/share/.gdbinit LDFLAGS="-Wl,-rpath='$ORIGIN'/../lib64" --enable-gold
+../configure --prefix=$PREFIX --disable-werror --enable-nls --with-system-gdbinit=$PREFIX/share/.gdbinit LDFLAGS="-Wl,-rpath='$ORIGIN'/../lib64"
 make -j 20
 make install-strip -j 20
 unset ORIGIN
@@ -590,7 +590,7 @@ export PREFIX=~/$HOST-host-$TARGET-target-gcc15
 cd ~/binutils/build
 rm -rf *
 export ORIGIN='$$ORIGIN'
-../configure --disable-werror --enable-nls --target=$TARGET --prefix=$PREFIX --with-system-gdbinit=$PREFIX/share/.gdbinit LDFLAGS="-Wl,-rpath='$ORIGIN'/../lib64" --enable-gold
+../configure --disable-werror --enable-nls --target=$TARGET --prefix=$PREFIX --with-system-gdbinit=$PREFIX/share/.gdbinit LDFLAGS="-Wl,-rpath='$ORIGIN'/../lib64"
 make -j 20
 make install-strip -j 20
 unset ORIGIN
@@ -658,7 +658,7 @@ export PREFIX=~/$HOST-host-$TARGET-target-gcc15
 ```shell
 cd ~/binutils/build
 rm -rf *
-../configure --host=$HOST --target=$TARGET --prefix=$PREFIX --disable-werror --with-gmp=$GMP --with-mpfr=$MPFR --with-expat --with-libexpat-prefix=$EXPAT --with-libiconv-prefix=$ICONV --with-system-gdbinit=$PREFIX/share/.gdbinit --with-python=$HOME/toolchains/script/python_config.sh  --enable-gold CXXFLAGS=-D_WIN32_WINNT=0x0600
+../configure --host=$HOST --target=$TARGET --prefix=$PREFIX --disable-werror --with-gmp=$GMP --with-mpfr=$MPFR --with-expat --with-libexpat-prefix=$EXPAT --with-libiconv-prefix=$ICONV --with-system-gdbinit=$PREFIX/share/.gdbinit --with-python=$HOME/toolchains/script/python_config.sh  CXXFLAGS=-D_WIN32_WINNT=0x0600
 make -j 20
 make install-strip -j 20
 ```
@@ -726,7 +726,7 @@ export PREFIX=~/$HOST-host-$TARGET-target-gcc15
 cd ~/binutils/build
 rm -rf *
 export ORIGIN='$$ORIGIN'
-../configure --disable-werror --enable-nls --target=$TARGET --prefix=$PREFIX --with-system-gdbinit=$PREFIX/share/.gdbinit LDFLAGS="-Wl,-rpath='$ORIGIN'/../lib64" --enable-gold
+../configure --disable-werror --enable-nls --target=$TARGET --prefix=$PREFIX --with-system-gdbinit=$PREFIX/share/.gdbinit LDFLAGS="-Wl,-rpath='$ORIGIN'/../lib64"
 make -j 20
 make install-strip -j 20
 unset ORIGIN
@@ -790,7 +790,7 @@ export PREFIX=~/$HOST-host-$TARGET-target-gcc15
 ```shell
 cd ~/binutils/build
 rm -rf *
-../configure --host=$HOST --target=$TARGET --prefix=$PREFIX --disable-werror --with-gmp=$GMP --with-mpfr=$MPFR --with-expat --with-libexpat-prefix=$EXPAT --with-libiconv-prefix=$ICONV --with-system-gdbinit=$PREFIX/share/.gdbinit --with-python=$HOME/toolchains/script/python_config.sh  --enable-gold CXXFLAGS=-D_WIN32_WINNT=0x0600
+../configure --host=$HOST --target=$TARGET --prefix=$PREFIX --disable-werror --with-gmp=$GMP --with-mpfr=$MPFR --with-expat --with-libexpat-prefix=$EXPAT --with-libiconv-prefix=$ICONV --with-system-gdbinit=$PREFIX/share/.gdbinit --with-python=$HOME/toolchains/script/python_config.sh  CXXFLAGS=-D_WIN32_WINNT=0x0600
 make -j 20
 make install-strip -j 20
 ```
@@ -872,7 +872,7 @@ unset ORIGIN
 ```shell
 cd ~/binutils/build
 rm -rf *
-../configure --disable-werror --enable-nls --target=$TARGET --prefix=$PREFIX --disable-gdb --enable-gold
+../configure --disable-werror --enable-nls --target=$TARGET --prefix=$PREFIX --disable-gdb
 make -j 20
 make install-strip -j 20
 echo "export PATH=$PREFIX/bin:"'$PATH' >> ~/.bashrc
