@@ -113,6 +113,12 @@ def main() -> None:
         "--prefix", dest="prefix_dir", type=str, help="The dir contains all the prefix dir.", default=default_config.prefix_dir
     )
     parser.add_argument(
+        "--nls",
+        action=argparse.BooleanOptionalAction,
+        help="Whether to enable nls(nature language support) support in GCC toolchain.",
+        default=default_config.nls,
+    )
+    parser.add_argument(
         "--compress",
         dest="compress_level",
         type=int,

@@ -99,6 +99,7 @@ class configure(common.basic_configure):
     newlib: bool
     jobs: int
     prefix_dir: pathlib.Path
+    nls: bool
     compress_level: int
 
     def __init__(
@@ -109,7 +110,8 @@ class configure(common.basic_configure):
         newlib: bool = True,
         jobs: int | None = None,
         prefix_dir: str | None = None,
-        compress_level: int = 19
+        nls: bool = True,
+        compress_level: int = 19,
     ) -> None:
         """设置gcc构建配置
 
@@ -120,6 +122,7 @@ class configure(common.basic_configure):
             newlib (bool, optional): 是否为独立工具链构建newlib. 默认为构建.
             jobs (int | None, optional): 构建时的并发数. 默认为当前平台cpu核心数的1.5倍.
             prefix_dir (str | None, optional): 工具链安装根目录. 默认为用户主目录.
+            nls (bool, optional): 是否启用nls. 默认为启用.
             compress_level (int, optional): zstd压缩等级(1~19). 默认为19级
         """
 
@@ -129,6 +132,7 @@ class configure(common.basic_configure):
         self.newlib = newlib
         self.jobs = jobs or (os.cpu_count() or 1) + 2
         self.prefix_dir = pathlib.Path(prefix_dir) if prefix_dir else pathlib.Path.home()
+        self.nls = nls
         self.compress_level = compress_level
 
     def check(self) -> None:

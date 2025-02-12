@@ -439,6 +439,7 @@ class cross_environment:
         home: str,
         jobs: int,
         prefix_dir: str,
+        nls: bool,
         compress_level: int,
     ) -> None:
         """gcc交叉工具链对象
@@ -452,6 +453,7 @@ class cross_environment:
             newlib (bool): 是否启用newlib, 仅对独立工具链有效
             home (str): 源代码树搜索主目录
             jobs (int): 并发构建数
+            nls (bool): 是否启用nls
             compress_level (int): zstd压缩等级
         """
 
@@ -461,7 +463,7 @@ class cross_environment:
         self.target_arch = self.env.target_field.arch
         self.basic_option = [
             "--disable-werror",
-            " --enable-nls",
+            " --enable-nls" if nls else "--disable-nls",
             f"--target={self.env.target}",
             f"--prefix={self.env.prefix}",
             f"--host={self.env.host}",
