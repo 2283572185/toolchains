@@ -566,7 +566,7 @@ class basic_environment:
     name: str  # 工具链名
     prefix_dir: Path  # 安装路径
     bin_dir: Path  # 安装后可执行文件所在目录
-    compress_level: int # zstd压缩等级
+    compress_level: int  # zstd压缩等级
 
     def __init__(
         self, build: str, version: str, name_without_version: str, home: str, jobs: int, prefix_dir: str, compress_level: int
@@ -786,6 +786,15 @@ class basic_configure:
     _args: argparse.Namespace  # 解析后的命令选项
 
     encode_name_map: dict[str, str] = {"home": "_origin_home_path"}
+
+    def get_public_fields(self) -> dict[str, typing.Any]:
+        """以字典形式获取所有公开字段
+
+        Returns:
+            dict[str, typing.Any]: 打包成字典的公开字段
+        """
+
+        return {key: value for key, value in filter(lambda x: not x[0].startswith("_"), vars(self).items())}
 
     def register_encode_name_map(self, param_name: str, attribute_name: str) -> None:
         """将param_name->attribute_name的映射关系记录到类的encode_name_map表

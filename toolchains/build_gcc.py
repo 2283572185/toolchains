@@ -49,9 +49,7 @@ def build_specific_gcc(
         target (str): 目标平台
     """
 
-    config_list = vars(config)
-    del config_list["_origin_home_path"]
-    del config_list["_args"]
+    config_list = config.get_public_fields()
     env = environment(host=host, target=target, **config_list)
     modifier_list.modify(env, target)
     env.build()
