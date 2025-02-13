@@ -445,6 +445,7 @@ def symlink(src: Path, dst: Path, dry_run: bool | None = None) -> None:
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
 
+    remove_if_exists(dst)
     dst.symlink_to(src, src.is_dir())
 
 
