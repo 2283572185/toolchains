@@ -2,20 +2,20 @@
 
 ## 基本信息
 
-| 项目       | 版本         |
-| :--------- | :----------- |
-| OS         | Ubuntu 24.04 |
-| GCC        | 15.0.0       |
-| GDB        | 16.0.50      |
-| Binutils   | 2.42.50      |
+| 项目        | 版本         |
+| :---------- | :----------- |
+| OS          | Ubuntu 24.10 |
+| GCC         | 15.0.0       |
+| GDB         | 17.0.50      |
+| Binutils    | 2.44.50      |
 | Python $^*$ | 3.13.2       |
-| Glibc      | 2.39         |
-| Mingw-w64  | 10.0.0       |
-| PExports   | 0.47         |
-| Iconv      | 1.17         |
-| Gmp        | 6.2.1        |
-| Mpfr       | 4.1.0        |
-| Expat      | 2.5.0        |
+| Glibc       | 2.39         |
+| Mingw-w64   | 10.0.0       |
+| PExports    | 0.47         |
+| Iconv       | 1.17         |
+| Gmp         | 6.2.1        |
+| Mpfr        | 4.1.0        |
+| Expat       | 2.5.0        |
 
 *: 在为Windows平台编译带有Python支持的GDB时需要下载Python包，Linux平台可以使用系统自带包
 
