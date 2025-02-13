@@ -1,4 +1,4 @@
-python  # type: ignore
+python
 import gdb  # type: ignore
 import os
 import sys
@@ -18,4 +18,4 @@ if python_dir:
     register_libstdcxx_printers(gdb.current_objfile())
 else:
     print("Cannot find gcc python support because share/gcc*/python directory does not exist.")
-end  # type: ignore
+end

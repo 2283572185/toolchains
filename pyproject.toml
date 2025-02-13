@@ -31,7 +31,7 @@ include = ["readme/*.md", "script/*", "xmake/*", "CONTRIBUTORS.md"]
 [tool.black]
 line-length = 140
 skip-string-normalization = false
-include = "(\\.pyi?|script/.gdbinit)$"
+include = "(\\.pyi?)$"
 exclude = '''
 /(
     \.git
