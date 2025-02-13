@@ -516,11 +516,11 @@ def check_lib_dir(lib: str, lib_dir: Path, do_assert: bool = True, dry_run: bool
 
     message = toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
     if not do_assert and not lib_dir.exists():
-        print(toolchains_error("no"))
+        print(_color.error.wrapper("no"))
         return False
     else:
         assert lib_dir.exists(), message
-    print(toolchains_success("yes"))
+    print(_color.success.wrapper("yes"))
     return True
 
 
@@ -553,7 +553,6 @@ class basic_environment:
         self.jobs = jobs
         self.root_dir = Path(__file__).parent.resolve()
         self.script_dir = self.root_dir.parent / "script"
-        self.readme_dir = self.root_dir.parent / "readme"
         self.prefix_dir = Path(prefix_dir)
         self.bin_dir = self.prefix_dir / self.name / "bin"
         self.compress_level = compress_level
@@ -594,13 +593,6 @@ class basic_environment:
 
         with (self.home / ".bashrc").open("a") as file:
             file.write(f"export PATH={self.bin_dir}:$PATH\n")
-
-    def copy_readme(self) -> None:
-        """复制工具链说明文件"""
-
-        readme_path = self.readme_dir / f"{self.name_without_version}.md"
-        target_path = self.home / self.name / "README.md"
-        copy(readme_path, target_path)
 
 
 class triplet_field:
