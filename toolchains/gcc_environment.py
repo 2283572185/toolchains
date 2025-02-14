@@ -151,7 +151,7 @@ class environment(common.basic_environment):
             match lib:
                 # 支持使用厂商修改过的源代码
                 case "glibc" | "linux" if self.target_field.vendor != "unknown":
-                    vendor = self.target_field.vendor[1]
+                    vendor = self.target_field.vendor
                     custom_lib_dir = self.home / f"{lib}-{vendor}"
                     if common.check_lib_dir(lib, custom_lib_dir, False):
                         lib_dir = custom_lib_dir
@@ -632,7 +632,7 @@ class build_environment:
         self.env.configure(*self.libc_option)
         self.env.make()
         self.env.install("install")
-        self.env.adjust_glibc("arm-sf")
+        self.env.adjust_glibc(self.adjust_glibc_arch)
 
         # 编译完整gcc
         self.env.enter_build_dir("gcc")
