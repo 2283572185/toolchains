@@ -562,10 +562,10 @@ class basic_environment:
         """压缩构建完成的工具链
 
         Args:
-            name (str, optional): 要压缩的目标名称，是相对于self.home的路径. 默认为self.name.
+            name (str, optional): 要压缩的目标名称，是相对于self.prefix_dir的路径. 默认为self.name.
         """
 
-        _ = chdir_guard(self.home)
+        _ = chdir_guard(self.prefix_dir)
         name = name or self.name
         add_environ("ZSTD_CLEVEL", str(self.compress_level))
         add_environ("ZSTD_NBTHREADS", str(self.jobs))
@@ -722,7 +722,7 @@ def _path_complete(prefix: str, need_file: bool, allowed_suffix: list[str]) -> l
     return sorted(result)
 
 
-class _files_completer:
+class files_completer:
     """支持文件补全"""
 
     def __init__(self, allowed_suffix: str | list[str] = []) -> None:
@@ -734,7 +734,7 @@ class _files_completer:
         return _path_complete(prefix, True, self.allowed_suffix)
 
 
-def _dir_completer(prefix: str, **_: dict[str, typing.Any]) -> list[str]:
+def dir_completer(prefix: str, **_: dict[str, typing.Any]) -> list[str]:
     """支持目录补全"""
 
     return _path_complete(prefix, False, [])
@@ -804,14 +804,14 @@ class basic_configure:
             "If home is a relative path, it will be converted to an absolute path relative to the cwd.",
             default=str(basic_configure().home),
         )
-        setattr(action, "completer", _dir_completer)
+        setattr(action, "completer", dir_completer)
         action = parser.add_argument(
             "--export",
             dest="export_file",
             type=str,
             help="Export settings to specific file. The origin home path is saved to the configure file.",
         )
-        setattr(action, "completer", _files_completer(".json"))
+        setattr(action, "completer", files_completer(".json"))
         action = parser.add_argument(
             "--import",
             dest="import_file",
@@ -820,7 +820,7 @@ class basic_configure:
             "If the home in configure file is a a relative path, "
             "it will be converted to an absolute path relative to the directory of the configure file.",
         )
-        setattr(action, "completer", _files_completer(".json"))
+        setattr(action, "completer", files_completer(".json"))
         parser.add_argument(
             "--dry-run",
             dest="dry_run",
