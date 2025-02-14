@@ -26,7 +26,7 @@ for flag in flag_list:
     parse.add_argument(
         f"--{name.replace('_', '-')}", action="store_true", help=f"The {name.replace('_', ' ')} of the python embed package."
     )
-args: argparse.Namespace = parse.parse_args()
+args, _ = parse.parse_known_args()
 for flag in flag_list:
     if getattr(args, flag.name, None):
         print(flag)
