@@ -24,7 +24,7 @@
 ### 1.安装系统包
 
 ```shell
-sudo apt install bison flex texinfo make automake autoconf libtool git gcc g++ gcc-multilib g++-multilib python3 tar xz-utils unzip libgmp-dev libmpfr-dev zlib1g-dev libexpat1-dev gawk bzip2
+sudo apt install bison flex texinfo make automake autoconf libtool git gcc g++ gcc-multilib g++-multilib python3 tar zstd unzip libgmp-dev libmpfr-dev zlib1g-dev libexpat1-dev gawk bzip2
 ```
 
 ### 2.下载源代码

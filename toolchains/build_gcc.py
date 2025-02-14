@@ -32,7 +32,7 @@ def check_triplet(host: str, target: str) -> None:
 
 def _check_input(args: argparse.Namespace) -> None:
     assert args.jobs > 0, f"Invalid jobs: {args.jobs}."
-    assert 1 <= args.compress_level <= 19, f"Invalid compress level: {args.compress_level}"
+    assert 1 <= args.compress_level <= 22, f"Invalid compress level: {args.compress_level}"
     check_triplet(args.host, support_platform_list.target_list[0] if args.dump else args.target)
 
 
@@ -123,7 +123,7 @@ def main() -> None:
         "--compress",
         dest="compress_level",
         type=int,
-        help="The compress level of zstd when packing. Support 1~19.",
+        help="The compress level of zstd when packing. Support 1~22.",
         default=default_config.compress_level,
     )
     parser.add_argument("--dump", action="store_true", help="Print support platforms and exit.")

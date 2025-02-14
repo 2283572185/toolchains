@@ -581,9 +581,8 @@ class basic_environment:
 
         chdir(self.prefix_dir)
         name = name or self.name
-        add_environ("ZSTD_CLEVEL", str(self.compress_level))
-        add_environ("ZSTD_NBTHREADS", str(self.jobs))
-        run_command(f"tar -caf {name}.tar.zst {name}")
+        run_command(f"tar -cf {name}.tar {name}")
+        run_command(f"zstd --ultra --rm -{self.compress_level} -T{self.jobs} -f {name}.tar")
 
     def register_in_env(self) -> None:
         """注册安装路径到环境变量"""
@@ -1052,7 +1051,7 @@ class basic_build_configure(basic_configure):
             build (str | None, optional): 构建平台. 默认为gcc -dumpmachine输出的结果，即当前平台.
             jobs (int | None, optional): 构建时的并发数. 默认为当前平台cpu核心数的1.5倍.
             prefix_dir (str | None, optional): 工具链安装根目录. 默认为用户主目录.
-            compress_level (int, optional): zstd压缩等级(1~19). 默认为19级
+            compress_level (int, optional): zstd压缩等级(1~22). 默认为19级
         """
 
         super().__init__()
@@ -1067,7 +1066,7 @@ class basic_build_configure(basic_configure):
         check_home(self.home)
         assert self.build and triplet_field.check(self.build), f"Invalid build platform: {self.build}."
         assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
-        assert 1 <= self.compress_level <= 19, f"Invalid compress level: {self.compress_level}"
+        assert 1 <= self.compress_level <= 22, f"Invalid compress level: {self.compress_level}"
 
 
 assert __name__ != "__main__", "Import this file instead of running it directly."
