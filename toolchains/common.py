@@ -211,8 +211,10 @@ def run_command(
         None | subprocess.CompletedProcess[str]: 在命令正常执行结束后返回执行结果，否则返回None
     """
 
+    stdout: int | _FILE
+    stderr: int | _FILE
     if capture:
-        if capture == True:
+        if isinstance(capture, bool):
             stdout = stderr = subprocess.PIPE  # capture为True，不论是否回显都需要捕获输出
         else:
             stdout, stderr = capture  # 将输出捕获到传入的文件中
@@ -577,7 +579,7 @@ class basic_environment:
             name (str, optional): 要压缩的目标名称，是相对于self.prefix_dir的路径. 默认为self.name.
         """
 
-        _ = chdir_guard(self.prefix_dir)
+        chdir(self.prefix_dir)
         name = name or self.name
         add_environ("ZSTD_CLEVEL", str(self.compress_level))
         add_environ("ZSTD_NBTHREADS", str(self.jobs))
@@ -883,18 +885,15 @@ class basic_configure:
         """
 
         # 先处理子类，因为子类调用了基类的默认构造，会覆盖基类的成员
-        param_list: dict[str, typing.Any] = {}
-        for key in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
-            if key in input_list:
-                param_list[key] = input_list[key]
-        result: Self = cls(**param_list)
-
-        # 处理基类
-        param_list = {}
-        for key in itertools.islice(inspect.signature(basic_configure.__init__).parameters.keys(), 1, None):
-            if key in input_list:
-                param_list[key] = input_list[key]
-        basic_configure.__init__(result, **param_list)
+        result: Self = cls.__new__(cls)
+        current_cls = cls
+        while current_cls != object:
+            param_list: dict[str, typing.Any] = {}
+            for key in itertools.islice(inspect.signature(current_cls.__init__).parameters.keys(), 1, None):
+                if key in input_list:
+                    param_list[key] = input_list[key]
+            current_cls.__init__(result, **param_list)
+            current_cls = current_cls.__bases__[0]
         return result
 
     @classmethod
@@ -905,7 +904,17 @@ class basic_configure:
             dict[str, typing.Any]: 默认参数列表
         """
 
-        return {param.name: param.default for param in itertools.islice(inspect.signature(cls.__init__).parameters.values(), 1, None)}
+        result: dict[str, typing.Any] = {}
+        current_cls = cls
+        while current_cls != object:
+            current_result: dict[str, typing.Any] = {
+                param.name: param.default
+                for param in itertools.islice(inspect.signature(current_cls.__init__).parameters.values(), 1, None)
+            }
+            result.update(current_result)
+            current_cls = current_cls.__bases__[0]
+
+        return result
 
     @classmethod
     def parse_args(cls, args: argparse.Namespace) -> Self:
@@ -922,14 +931,13 @@ class basic_configure:
         command_dry_run.set(args.dry_run)
         args_list = vars(args)
         input_list: dict[str, typing.Any] = {}
-        default_list: dict[str, typing.Any] = {
-            **basic_configure._get_default_param_list(),
-            **cls._get_default_param_list(),
-        }
-        for param in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
-            assert param != "home", "This function will set home. So home should not in the param list of the __init__ function."
-            if param in args_list:
-                input_list[param] = args_list[param]
+        default_list: dict[str, typing.Any] = cls._get_default_param_list()
+        current_cls = cls
+        while current_cls != basic_configure:
+            for param in itertools.islice(inspect.signature(current_cls.__init__).parameters.keys(), 1, None):
+                if param in args_list:
+                    input_list[param] = args_list[param]
+            current_cls = current_cls.__bases__[0]
         input_list["home"] = args.home
         input_list["base_path"] = Path.cwd()
 
@@ -942,34 +950,34 @@ class basic_configure:
         result._args = args
         return result
 
-    def _map_value(self, cls: type[Self | "basic_configure"]) -> dict[str, typing.Any]:
+    def _map_value(self) -> dict[str, typing.Any]:
         """将构造函数参数列表中的参数名key通过encode_name_map映射为对象的属性名
-
-        Args:
-            cls (type): 获取构造函数用的类型
 
         Returns:
             dict[str, typing.Any]: 输出属性列表
         """
 
         output_list: dict[str, typing.Any] = {}
-        for key in itertools.islice(inspect.signature(cls.__init__).parameters.keys(), 1, None):
-            mapped_key = self.encode_name_map.get(key, key)  # 进行参数名->属性名映射，映射失败则直接使用参数名
-            value = getattr(self, mapped_key, None)
-            match (value):
-                case None:
-                    # 若key不存在且未被映射过则跳过，是不需要序列化的中间参数
-                    # 若key不存在且映射过则说明映射表encode_name_map有误
-                    assert mapped_key == key, f"The encode_name_map maps the param {key} to a noexist attribute."
-                # 将集合转化为列表
-                case set():
-                    output_list[key] = list(typing.cast(set[object], value))
-                # 将Path转化为字符串
-                case Path():
-                    output_list[key] = str(value)
-                # 正常转化
-                case _:
-                    output_list[key] = value
+        current_cls = type(self)
+        while current_cls != object:
+            for key in itertools.islice(inspect.signature(current_cls.__init__).parameters.keys(), 1, None):
+                mapped_key = self.encode_name_map.get(key, key)  # 进行参数名->属性名映射，映射失败则直接使用参数名
+                value = getattr(self, mapped_key, None)
+                match (value):
+                    case None:
+                        # 若key不存在且未被映射过则跳过，是不需要序列化的中间参数
+                        # 若key不存在且映射过则说明映射表encode_name_map有误
+                        assert mapped_key == key, f"The encode_name_map maps the param {key} to a noexist attribute."
+                    # 将集合转化为列表
+                    case set():
+                        output_list[key] = list(typing.cast(set[object], value))
+                    # 将Path转化为字符串
+                    case Path():
+                        output_list[key] = str(value)
+                    # 正常转化
+                    case _:
+                        output_list[key] = value
+            current_cls = current_cls.__bases__[0]
         return output_list
 
     def encode(self) -> dict[str, typing.Any]:
@@ -980,7 +988,7 @@ class basic_configure:
             dict[str, typing.Any]: 编码后的字典
         """
 
-        output_list: dict[str, typing.Any] = {**self._map_value(basic_configure), **self._map_value(type(self))}
+        output_list: dict[str, typing.Any] = self._map_value()
         return output_list
 
     def _save_config_echo(self) -> str | None:
@@ -1010,6 +1018,56 @@ class basic_configure:
                 file_path.write_text(json.dumps(self.encode(), indent=4))
             except Exception as e:
                 raise RuntimeError(f'Export settings to file "{file_path}" failed: {e}')
+
+
+def get_default_build_platform() -> str | None:
+    """获取默认的build平台，即当前平台
+
+    Returns:
+        str | None: 默认build平台. 获取失败返回None
+    """
+
+    result: subprocess.CompletedProcess[str] | None = run_command("gcc -dumpmachine", True, True, False, False)
+    return result.stdout.strip() if result else None
+
+
+class basic_build_configure(basic_configure):
+    """工具链构建配配置"""
+
+    build: str | None
+    jobs: int
+    prefix_dir: Path
+    compress_level: int
+
+    def __init__(
+        self,
+        build: str | None = None,
+        jobs: int | None = None,
+        prefix_dir: str | None = None,
+        compress_level: int = 19,
+    ) -> None:
+        """初始化工具链构建配置
+
+        Args:
+            build (str | None, optional): 构建平台. 默认为gcc -dumpmachine输出的结果，即当前平台.
+            jobs (int | None, optional): 构建时的并发数. 默认为当前平台cpu核心数的1.5倍.
+            prefix_dir (str | None, optional): 工具链安装根目录. 默认为用户主目录.
+            compress_level (int, optional): zstd压缩等级(1~19). 默认为19级
+        """
+
+        super().__init__()
+        self.build = build or get_default_build_platform()
+        self.jobs = jobs or (os.cpu_count() or 1) + 2
+        self.prefix_dir = Path(prefix_dir) if prefix_dir else Path.home()
+        self.compress_level = compress_level
+
+    def check(self) -> None:
+        """检查工具链构建配置是否合法"""
+
+        check_home(self.home)
+        assert self.build and triplet_field.check(self.build), f"Invalid build platform: {self.build}."
+        assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
+        assert 1 <= self.compress_level <= 19, f"Invalid compress level: {self.compress_level}"
 
 
 assert __name__ != "__main__", "Import this file instead of running it directly."

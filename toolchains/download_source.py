@@ -417,6 +417,7 @@ class configure(common.basic_configure):
             remote (str, optional): 倾向于使用的git源. 默认为GitHub源.
         """
 
+        super().__init__()
         self.glibc_version = glibc_version or get_current_glib_version()
         self.clone_type = git_clone_type[clone_type]
         self.shallow_clone_depth = depth
