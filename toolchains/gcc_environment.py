@@ -553,7 +553,7 @@ class build_environment:
         self.need_gdbserver = self.need_gdbserver and not skip_gdbserver
         # 从完整工具链复制文件
         if not self.full_build:
-            self.need_gdbserver = self.env.copy_from_cross_toolchain(self.need_gdbserver)
+            self.need_gdbserver = not self.env.copy_from_cross_toolchain(self.need_gdbserver)
         if self.need_gdb and self.env.freestanding and not self.need_newlib:
             copy_pretty_printer(self.env)
 

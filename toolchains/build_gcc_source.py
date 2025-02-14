@@ -1,7 +1,4 @@
-import os
-import pathlib
 import typing
-from subprocess import CompletedProcess
 
 from . import common
 from .gcc_environment import build_environment as environment
@@ -84,63 +81,35 @@ class support_platform_list:
     ]
 
 
-def get_default_build_platform() -> str | None:
-    result: CompletedProcess[str] | None = common.run_command("gcc -dumpmachine", True, True, False, False)
-    return result.stdout.strip() if result else None
-
-
-class configure(common.basic_configure):
+class configure(common.basic_build_configure):
     """gcc构建配置"""
 
-    build: str | None
     gdb: bool
     gdbserver: bool
     newlib: bool
-    jobs: int
-    prefix_dir: pathlib.Path
     nls: bool
-    compress_level: int
 
     def __init__(
         self,
-        build: str | None = None,
         gdb: bool = True,
         gdbserver: bool = True,
         newlib: bool = True,
-        jobs: int | None = None,
-        prefix_dir: str | None = None,
         nls: bool = True,
-        compress_level: int = 19,
     ) -> None:
         """设置gcc构建配置
 
         Args:
-            build (str | None, optional): 构建平台. 默认为gcc -dumpmachine输出的结果，即当前平台.
             gdb (bool, optional): 是否构建gdb. 默认为构建.
             gdbserver (bool, optional): 是否构建gdbserver. 默认为构建.
             newlib (bool, optional): 是否为独立工具链构建newlib. 默认为构建.
-            jobs (int | None, optional): 构建时的并发数. 默认为当前平台cpu核心数的1.5倍.
-            prefix_dir (str | None, optional): 工具链安装根目录. 默认为用户主目录.
             nls (bool, optional): 是否启用nls. 默认为启用.
-            compress_level (int, optional): zstd压缩等级(1~19). 默认为19级
         """
 
-        self.build = build or get_default_build_platform()
+        super().__init__()
         self.gdb = gdb
         self.gdbserver = gdbserver
         self.newlib = newlib
-        self.jobs = jobs or (os.cpu_count() or 1) + 2
-        self.prefix_dir = pathlib.Path(prefix_dir) if prefix_dir else pathlib.Path.home()
         self.nls = nls
-        self.compress_level = compress_level
-
-    def check(self) -> None:
-        """检查gcc构建配置是否合法"""
-
-        common.check_home(self.home)
-        assert self.build and common.triplet_field.check(self.build), f"Invalid build platform: {self.build}."
-        assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
-        assert 1 <= self.compress_level <= 19, f"Invalid compress level: {self.compress_level}"
 
 
 __all__ = ["modifier_list", "support_platform_list", "configure", "environment"]
