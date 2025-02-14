@@ -3,7 +3,7 @@ import json
 import pathlib
 import typing
 
-import py
+import py # type: ignore
 import pytest
 
 from toolchains.common import basic_configure, command_dry_run
@@ -11,16 +11,22 @@ from toolchains.common import basic_configure, command_dry_run
 type Path = py.path.LocalPath
 
 
-class configure(basic_configure):
+class configure0(basic_configure):
     jobs: int
+
+    def __init__(self, jobs: int = 1) -> None:
+        super().__init__()
+        self.jobs = jobs
+
+
+class configure(configure0):
     prefix: pathlib.Path
     libs: set[str]
     _origin_libs: set[str]
     _private: int  # 私有对象，在序列化/反序列化时不应该被访问
 
-    def __init__(self, jobs: int = 1, prefix: str = str(pathlib.Path.home()), libs: list[str] | None = None) -> None:
+    def __init__(self, prefix: str = str(pathlib.Path.home()), libs: list[str] | None = None) -> None:
         super().__init__()
-        self.jobs = jobs
         self.prefix = pathlib.Path(prefix)
         self._origin_libs = {*(libs or [])}
         self.register_encode_name_map("libs", "_origin_libs")
@@ -92,7 +98,9 @@ class test_basic_configure:
         custom_jobs = 2
         args = self.parser.parse_args(["jobs", f"--jobs={custom_jobs}"])
         current_config = configure.parse_args(args)
-        assert current_config == configure(jobs=custom_jobs)
+        gt = configure()
+        gt.jobs = custom_jobs
+        assert current_config == gt
 
     def test_subcommand_prefix(self, tmpdir: Path) -> None:
         """测试prefix选项能否正常解析
@@ -142,14 +150,16 @@ class test_basic_configure:
 
         args = self.parser.parse_args(["prefix", "--import", str(tmpfile), "--prefix", custom_prefix])
         current_config = configure.parse_args(args)
-        gt = configure(jobs=self.default_config.jobs, prefix=custom_prefix, libs=["extra1", "extra2"])
+        gt = configure(prefix=custom_prefix, libs=["extra1", "extra2"])
+        gt.jobs = self.default_config.jobs
         gt.home = home
         assert current_config == gt
 
         # 尝试恢复默认配置
         args = self.parser.parse_args(["libs", "--import", str(tmpfile), "--libs"])
         current_config = configure.parse_args(args)
-        gt = configure(jobs=self.default_config.jobs)
+        gt = configure()
+        gt.jobs = self.default_config.jobs
         gt.home = home
         assert current_config == gt
 
@@ -166,7 +176,7 @@ class test_basic_configure:
         current_config = configure.parse_args(args)
         current_config.save_config()
 
-        gt = {"home": ".", "jobs": self.default_config.jobs, "prefix": custom_prefix, "libs": []}
+        gt: dict[str, typing.Any] = {"home": ".", "jobs": self.default_config.jobs, "prefix": custom_prefix, "libs": []}
         with tmpfile.open() as file:
             export_config = json.load(file)
         assert export_config == gt
