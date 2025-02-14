@@ -86,7 +86,7 @@ def main() -> None:
     configure.add_argument(parser)
     parser.add_argument("--build", type=str, help="The build platform of the GCC toolchain.", default=default_config.build)
     parser.add_argument("--host", type=str, help="The host platform of the GCC toolchain.", default=default_config.build)
-    parser.add_argument("--target", type=str, help="The target platform of the GCC toolchain.")
+    parser.add_argument("--target", type=str, help="The target platform of the GCC toolchain.", default=default_config.build)
     parser.add_argument(
         "--gdb", action=argparse.BooleanOptionalAction, help="Whether to enable gdb support in GCC toolchain.", default=default_config.gdb
     )
@@ -109,9 +109,10 @@ def main() -> None:
         help="Number of concurrent jobs at build time.",
         default=default_config.jobs,
     )
-    parser.add_argument(
+    action = parser.add_argument(
         "--prefix", dest="prefix_dir", type=str, help="The dir contains all the prefix dir.", default=default_config.prefix_dir
     )
+    setattr(action, "completer", common.dir_completer)
     parser.add_argument(
         "--nls",
         action=argparse.BooleanOptionalAction,

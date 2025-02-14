@@ -4,7 +4,7 @@ import typing
 from subprocess import CompletedProcess
 
 from . import common
-from .gcc_environment import cross_environment as environment
+from .gcc_environment import build_environment as environment
 
 
 class modifier_list:
@@ -55,8 +55,7 @@ class modifier_list:
 
     @staticmethod
     def modify(env: environment, target: str) -> None:
-        # 特殊处理x86_64
-        target.replace("x86-64", "x86_64")
+        target = target.replace("-", "_")
         if modifier := getattr(modifier_list, target, None):
             modifier(env)
 

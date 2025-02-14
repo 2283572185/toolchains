@@ -227,7 +227,7 @@ class all_lib_list:
         "g++",
         "python3",
         "tar",
-        "xz-utils",
+        "zstd",
         "unzip",
         "libgmp-dev",
         "libmpfr-dev",

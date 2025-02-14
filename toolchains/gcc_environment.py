@@ -5,13 +5,6 @@ from pathlib import Path
 from . import common
 
 lib_list = ("expat", "gcc", "binutils", "gmp", "mpfr", "linux", "mingw", "pexports", "python-embed", "glibc", "newlib")
-dll_target_list = (
-    "install-target-libgcc",
-    "install-target-libstdc++-v3",
-    "install-target-libatomic",
-    "install-target-libquadmath",
-    "install-target-libgomp",
-)
 
 # NOTE：添加平台后需要在此处注册dll_name_list
 dll_name_list: dict[str, list[str]] = {
@@ -63,7 +56,7 @@ arch_32_bit_list = ("arm", "armeb", "i486", "i686", "risc32", "risc32be")
 
 
 def _get_specific_environment(self: "environment", host: str | None = None, target: str | None = None) -> "environment":
-    return environment(self.build, host, target, str(self.home), self.jobs, str(self.prefix_dir), self.compress_level)
+    return environment(self.build, host, target, str(self.home), self.jobs, str(self.prefix_dir), self.compress_level, True)
 
 
 class toolchain_type(StrEnum):
@@ -99,7 +92,8 @@ class environment(common.basic_environment):
     tool_prefix: str  # 工具的前缀，如x86_64-w64-mingw32-
     dll_name_list: list[str]  # 该平台上需要保留调试符号的dll列表
     python_config_path: Path  # python_config.sh所在路径
-    host_32_bit: bool  # 宿主环境是否是32位的
+    host_32_bit: bool  # host平台是否是32位的
+    target_32_bit: bool  # target平台是否是32位的
     rpath_option: str  # 设置rpath的链接选项
     rpath_dir: Path  # rpath所在目录
     freestanding: bool  # 是否为独立工具链
@@ -107,7 +101,15 @@ class environment(common.basic_environment):
     target_field: common.triplet_field  # target平台各个域
 
     def __init__(
-        self, build: str, host: None | str, target: None | str, home: str, jobs: int, prefix_dir: str, compress_level: int
+        self,
+        build: str,
+        host: None | str,
+        target: None | str,
+        home: str,
+        jobs: int,
+        prefix_dir: str,
+        compress_level: int,
+        simple: bool = False,
     ) -> None:
         self.build = build
         self.host = host or build
@@ -131,6 +133,15 @@ class environment(common.basic_environment):
         self.symlink_list = []
         self.share_dir = self.prefix / "share"
         self.gdbinit_path = self.share_dir / ".gdbinit"
+        self.host_32_bit = self.host.startswith(arch_32_bit_list)
+        self.target_32_bit = self.target.startswith(arch_32_bit_list)
+        lib_name = f'lib{"32" if self.host_32_bit else "64"}'
+        self.rpath_dir = self.prefix / lib_name
+        lib_path = Path("'$ORIGIN'") / ".." / lib_name
+        self.rpath_option = f'"-Wl,-rpath={lib_path}"'
+
+        if simple:
+            return
 
         self.lib_dir_list = {}
         self.host_field = common.triplet_field(self.host)
@@ -154,11 +165,6 @@ class environment(common.basic_environment):
         self.dll_name_list = dll_name_list[self.target_field.os]
 
         self.python_config_path = self.root_dir.parent / "script" / "python_config.sh"
-        self.host_32_bit = self.host.startswith(arch_32_bit_list)
-        lib_name = f'lib{"32" if self.host_32_bit else "64"}'
-        self.rpath_dir = self.prefix / lib_name
-        lib_path = Path("'$ORIGIN'") / ".." / lib_name
-        self.rpath_option = f'"-Wl,-rpath={lib_path}"'
         # 加载工具链
         if self.toolchain_type in (toolchain_type.cross, toolchain_type.canadian, toolchain_type.canadian_cross):
             _get_specific_environment(self).register_in_env()
@@ -191,7 +197,7 @@ class environment(common.basic_environment):
         if need_make_build_dir:
             common.mkdir(build_dir, remove_files)
 
-        _ = common.chdir_guard(build_dir)
+        common.chdir(build_dir)
         # 添加构建gdb所需的环境变量
         if lib == "binutils":
             common.add_environ("ORIGIN", "$$ORIGIN")
@@ -227,27 +233,14 @@ class environment(common.basic_environment):
 
         if target != ():
             targets = " ".join(("", *target))
-        elif Path.cwd() == self.lib_dir_list["gcc"] / "build":
-            common.run_command(f"make install-strip -j {self.jobs}", ignore_error)
-            targets = " ".join(dll_target_list)
         else:
             targets = "install-strip"
         common.run_command(f"make {targets} -j {self.jobs}", ignore_error)
 
-    def strip_debug_symbol(self) -> None:
-        """剥离动态库的调试符号到独立的符号文件"""
-
-        for lib_dir in filter(lambda dir: dir.name.startswith("lib"), self.lib_prefix.iterdir()):
-            for dll_path in filter(lambda file: file.name in self.dll_name_list, lib_dir.iterdir()):
-                symbol_path = dll_path.with_suffix(dll_path.suffix + ".debug")
-                common.run_command(f"{self.tool_prefix}objcopy --only-keep-debug {dll_path} {symbol_path}")
-                common.run_command(f"{self.tool_prefix}strip {dll_path}")
-                common.run_command(f"{self.tool_prefix}objcopy --add-gnu-debuglink={symbol_path} {dll_path}")
-
     def copy_gdbinit(self) -> None:
         """复制.gdbinit文件"""
 
-        gdbinit_src_path = self.root_dir / ".gdbinit"
+        gdbinit_src_path = self.root_dir.parent / "script" / ".gdbinit"
         common.copy(gdbinit_src_path, self.gdbinit_path)
 
     def build_libpython(self) -> None:
@@ -284,12 +277,11 @@ class environment(common.basic_environment):
 
         if self.toolchain_type == "native":
             # 本地工具链需要添加cc以代替系统提供的cc
-            common.symlink(self.bin_dir / "gcc", self.bin_dir / "cc")
+            common.symlink(Path("gcc"), self.bin_dir / "cc")
         if need_gdbinit:
             self.copy_gdbinit()
         if need_python_embed_package:
             self.copy_python_embed_package()
-        self.copy_readme()
         self.compress()
 
     def remove_unused_glibc_file(self) -> None:
@@ -343,8 +335,15 @@ class environment(common.basic_environment):
         with include_path.open("a") as file:
             file.writelines(("#undef MB_LEN_MAX\n", "#define MB_LEN_MAX 16\n"))
 
-    def copy_from_cross_toolchain(self) -> None:
-        """从交叉工具链中复制libc、libstdc++、libgcc、linux头文件、gdbserver等到本工具链中"""
+    def copy_from_cross_toolchain(self, need_gdbserver: bool) -> bool:
+        """从交叉工具链中复制libc、libstdc++、libgcc、linux头文件、gdbserver等到本工具链中
+
+        Args:
+            need_gdbserver (bool): 是否需要复制gdbserver
+
+        Returns:
+            bool: gdbserver是否成功复制
+        """
 
         # 从交叉工具链中复制libc、libstdc++、linux头文件等到本工具链中
         cross_toolchain = _get_specific_environment(self, target=self.target)
@@ -355,7 +354,11 @@ class environment(common.basic_environment):
         common.copy(cross_toolchain.prefix / "lib" / "gcc", self.prefix / "lib" / "gcc")
 
         # 复制gdbserver
-        common.copy_if_exist(cross_toolchain.bin_dir / "gdbserver", self.bin_dir / "gdbserver")
+        if need_gdbserver:
+            gdbserver = "gdbserver" if self.target_field.os == "linux" else "gdbserver.exe"
+            return bool(common.copy_if_exist(cross_toolchain.bin_dir / gdbserver, self.bin_dir / gdbserver))
+        else:
+            return False
 
 
 def get_mingw_lib_prefix_list(env: environment) -> dict[str, Path]:
@@ -378,9 +381,11 @@ def build_mingw_gdb_requirements(env: environment) -> None:
     for lib, prefix in lib_prefix_list.items():
         env.enter_build_dir(lib)
         env.configure(
-            f"--host={env.host} --disable-shared",
+            f"--host={env.host} --disable-shared --enable-static",
             f"--prefix={prefix}",
             f"--with-gmp={lib_prefix_list['gmp']}" if lib == "mpfr" else "",
+            'CFLAGS="-O3 -std=c11"',
+            'CXXFLAGS="-O3"',
         )
         env.make()
         env.install()
@@ -408,8 +413,8 @@ def copy_pretty_printer(env: environment) -> None:
             return
 
 
-class cross_environment:
-    """gcc交叉工具链配置环境"""
+class build_environment:
+    """gcc工具链构建环境"""
 
     env: environment  # gcc构建环境
     host_os: str  # gcc环境的host操作系统
@@ -427,6 +432,7 @@ class cross_environment:
     need_gdb: bool  # 是否需要编译gdb
     need_gdbserver: bool  # 是否需要编译gdbserver
     need_newlib: bool  # 是否需要编译newlib，仅对独立工具链有效
+    native_or_canadian = (toolchain_type.native, toolchain_type.canadian)  # host == target
 
     def __init__(
         self,
@@ -464,15 +470,23 @@ class cross_environment:
         self.basic_option = [
             "--disable-werror",
             " --enable-nls" if nls else "--disable-nls",
+            f"--build={self.env.build}",
             f"--target={self.env.target}",
             f"--prefix={self.env.prefix}",
             f"--host={self.env.host}",
+            "CFLAGS=-O3",
+            "CXXFLAGS=-O3",
         ]
         self.need_gdb, self.need_gdbserver, self.need_newlib = gdb, gdbserver, newlib
 
         libc_option_list = {
             "linux": [f"--prefix={self.env.lib_prefix}", f"--host={self.env.target}", f"--build={self.env.build}", "--disable-werror"],
-            "w64": [f"--host={self.env.target}", f"--prefix={self.env.lib_prefix}", "--with-default-msvcrt=ucrt", "--disable-werror"],
+            "w64": [
+                f"--host={self.env.target}",
+                f"--prefix={self.env.lib_prefix}",
+                "--with-default-msvcrt=ucrt",
+                "--disable-werror",
+            ],
             # newlib会自动设置安装路径的子目录
             "unknown": [f"--prefix={self.env.prefix}", f"--target={self.env.target}", f"--build={self.env.build}", "--disable-werror"],
         }
@@ -489,24 +503,27 @@ class cross_environment:
             "--disable-multilib",
         ]
 
+        w64_gdbsupport_option = 'CXXFLAGS="-O3 -D_WIN32_WINNT=0x0600"'
         gdb_option_list = {
-            "linux": [f"LDFLAGS={self.env.rpath_option}"],
+            "linux": [f"LDFLAGS={self.env.rpath_option}", "--with-python=/usr/bin/python3"],
             "w64": [
                 f"--with-python={self.env.python_config_path}",
-                "CXXFLAGS=-D_WIN32_WINNT=0x0600",
+                w64_gdbsupport_option,
                 "--with-expat",
                 *get_mingw_gdb_lib_options(self.env),
             ],
         }
+        enable_gdbserver_when_build_gdb = gdbserver and self.env.toolchain_type in self.native_or_canadian
+        gdbserver_option = "--enable-gdbserver" if enable_gdbserver_when_build_gdb else "--disable-gdbserver"
         self.gdb_option = (
             [
                 *gdb_option_list[self.host_os],
                 f"--with-system-gdbinit={self.env.gdbinit_path}",
-                "--disable-gdbserver",
+                gdbserver_option,
                 "--enable-gdb",
             ]
             if gdb
-            else ["--disable-gdbserver", "--disable-gdb"]
+            else [gdbserver_option, "--disable-gdb"]
         )
         # 创建libpython.a
         if gdb and self.host_os == "w64":
@@ -515,9 +532,9 @@ class cross_environment:
         linux_arch_list = {"i686": "x86", "x86_64": "x86", "arm": "arm", "aarch64": "arm64", "loongarch64": "loongarch", "riscv64": "riscv"}
         self.linux_option = [f"ARCH={linux_arch_list[self.target_arch]}", f"INSTALL_HDR_PATH={self.env.lib_prefix}", "headers_install"]
 
-        self.gdbserver_option = (
-            ["--disable-gdb", f"--host={self.env.target}", "--enable-gdbserver", "--disable-binutils"] if gdbserver else []
-        )
+        self.gdbserver_option = ["--disable-gdb", f"--host={self.env.target}", "--enable-gdbserver", "--disable-binutils"]
+        if self.target_os == "w64":
+            self.gdbserver_option.append(w64_gdbsupport_option)
 
         # Linux到其他平台交叉和Windows到Linux交叉需要完整编译
         self.full_build = self.host_os == "linux" or self.target_os == "linux" and self.target_arch in ("i686", "x86_64")
@@ -526,13 +543,18 @@ class cross_environment:
         # 由相关函数自动推动架构名
         self.adjust_glibc_arch = ""
 
-    def _after_build_gcc(self) -> None:
-        """在编译完gcc后完成收尾工作"""
+    def _after_build_gcc(self, skip_gdbserver: bool = False) -> None:
+        """在编译完gcc后完成收尾工作
 
+        Args:
+            skip_gdbserver (bool, optional): 跳过gdbserver构建. 默认为False.
+        """
+
+        self.need_gdbserver = self.need_gdbserver and not skip_gdbserver
         # 从完整工具链复制文件
         if not self.full_build:
-            self.env.copy_from_cross_toolchain()
-        if self.need_gdb and not self.need_newlib:
+            self.need_gdbserver = self.env.copy_from_cross_toolchain(self.need_gdbserver)
+        if self.need_gdb and self.env.freestanding and not self.need_newlib:
             copy_pretty_printer(self.env)
 
         # 编译gdbserver
@@ -544,17 +566,34 @@ class cross_environment:
             self.env.install("install-strip-gdbserver")
 
         # 复制gdb所需运行库
-        if self.need_gdb:
+        if self.need_gdb and self.env.toolchain_type not in self.native_or_canadian:
             gcc = _get_specific_environment(self.env, target=self.env.host)
             if self.host_os == "linux":
                 for dll in ("libstdc++.so.6", "libgcc_s.so.1"):
-                    common.copy(gcc.rpath_dir / dll, self.env.rpath_dir)
+                    common.copy(gcc.rpath_dir / dll, self.env.rpath_dir / dll, follow_symlinks=True)
             else:
                 for dll in ("libstdc++-6.dll", "libgcc_s_seh-1.dll"):
-                    common.copy(gcc.lib_prefix / "lib" / dll, self.env.bin_dir)
+                    common.copy(gcc.lib_prefix / "lib" / dll, self.env.bin_dir / dll)
 
         # 打包工具链
         self.env.package(self.need_gdb, self.need_gdb and self.host_os == "w64")
+
+    def _native_build_linux(self) -> None:
+        """编译linux本地工具链"""
+
+        # 编译gcc
+        self.env.enter_build_dir("gcc")
+        self.env.configure(*self.basic_option, *self.gcc_option)
+        self.env.make()
+        self.env.install()
+
+        # 编译binutils，如果启用gdb和gdbserver则一并编译
+        self.env.enter_build_dir("binutils")
+        self.env.configure(*self.basic_option, *self.gdb_option)
+        self.env.make()
+        self.env.install()
+        # 完成后续工作
+        self._after_build_gcc(True)
 
     def _full_build_linux(self) -> None:
         """完整自举target为linux的gcc"""
@@ -600,10 +639,24 @@ class cross_environment:
         self.env.configure(*self.basic_option, *self.gcc_option)
         self.env.make()
         self.env.install()
-        self.env.strip_debug_symbol()
 
         # 完成后续工作
         self._after_build_gcc()
+
+    def _build_pexports(self) -> None:
+        # 编译pexports
+        self.env.enter_build_dir("pexports")
+        self.env.configure(
+            f"--prefix={self.env.prefix} --host={self.env.host}",
+            "CFLAGS=-O3",
+            "CXXFLAGS=-O3",
+        )
+        self.env.make()
+        self.env.install()
+        # 为交叉工具链添加target前缀
+        if self.env.toolchain_type not in self.native_or_canadian:
+            pexports = "pexports.exe" if self.host_os == "w64" else "pexports"
+            common.rename(self.env.bin_dir / pexports, self.env.bin_dir / f"{self.env.target}-{pexports}")
 
     def _full_build_mingw(self) -> None:
         """完整自举target为mingw的gcc"""
@@ -611,6 +664,12 @@ class cross_environment:
         # 编译binutils，如果启用gdb则一并编译
         self.env.enter_build_dir("binutils")
         self.env.configure(*self.basic_option, *self.gdb_option)
+        self.env.make()
+        self.env.install()
+
+        # 编译安装mingw-w64头文件
+        self.env.enter_build_dir("mingw")
+        self.env.configure(*self.libc_option, "--without-crt")
         self.env.make()
         self.env.install()
 
@@ -631,15 +690,8 @@ class cross_environment:
         self.env.configure(*self.basic_option, *self.gcc_option)
         self.env.make()
         self.env.install()
-        self.env.strip_debug_symbol()
 
-        # 编译pexports
-        self.env.enter_build_dir("pexports")
-        self.env.configure(f"--prefix={self.env.prefix}")
-        self.env.make()
-        self.env.install()
-        # 添加target前缀
-        common.rename(self.env.bin_dir / "pexports", self.env.bin_dir / f"{self.env.target}-pexports")
+        self._build_pexports()
         # 完成后续工作
         self._after_build_gcc()
 
@@ -669,7 +721,6 @@ class cross_environment:
             self.env.enter_build_dir("gcc", False)
             self.env.make()
             self.env.install()
-            self.env.strip_debug_symbol()
         else:
             # 编译安装完整gcc
             self.env.enter_build_dir("gcc")
@@ -695,6 +746,10 @@ class cross_environment:
         self.env.make("all-gcc")
         self.env.install("install-strip-gcc")
 
+        # 有需要则编译安装pexports
+        if self.target_os == "w64":
+            self._build_pexports()
+
         # 完成后续工作
         self._after_build_gcc()
 
@@ -704,7 +759,9 @@ class cross_environment:
         # 编译gdb依赖库
         if self.need_gdb and self.host_os == "w64":
             build_mingw_gdb_requirements(self.env)
-        if self.full_build:
+        if self.env.toolchain_type == toolchain_type.native:
+            self._native_build_linux()
+        elif self.full_build:
             assert self.target_os in ("linux", "w64", "unknown")
             match (self.target_os):
                 case "linux":
