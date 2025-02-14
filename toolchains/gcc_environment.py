@@ -478,6 +478,10 @@ class build_environment:
             "CXXFLAGS=-O3",
         ]
         self.need_gdb, self.need_gdbserver, self.need_newlib = gdb, gdbserver, newlib
+        assert not self.env.freestanding or not self.need_gdbserver, common.toolchains_error(
+            "Cannot build gdbserver for freestanding platform.\n"
+            "You should use other server implementing the gdb protocol like OpenOCD."
+        )
 
         libc_option_list = {
             "linux": [f"--prefix={self.env.lib_prefix}", f"--host={self.env.target}", f"--build={self.env.build}", "--disable-werror"],
