@@ -308,7 +308,7 @@ def copy(src: Path, dst: Path, overwrite: bool = True, follow_symlinks: bool = F
 
 
 @support_dry_run()
-def copy_if_exist(src: Path, dst: Path, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> None:
+def copy_if_exist(src: Path, dst: Path, overwrite: bool = True, follow_symlinks: bool = False, dry_run: bool | None = None) -> bool:
     """如果文件或目录存在则复制文件或目录
 
     Args:
@@ -317,10 +317,16 @@ def copy_if_exist(src: Path, dst: Path, overwrite: bool = True, follow_symlinks:
         overwrite (bool, optional): 是否覆盖已存在项. 默认为覆盖.
         follow_symlinks (bool, optional): 是否复制软链接指向的目标，而不是软链接本身. 默认为保留软链接.
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
+
+    Returns:
+        bool: 是否发生了复制
     """
 
     if src.exists():
         copy(src, dst, overwrite, follow_symlinks)
+        return True
+    else:
+        return False
 
 
 def _remove_echo(path: Path) -> str:
@@ -352,16 +358,22 @@ def remove(path: Path, dry_run: bool | None = None) -> None:
 
 
 @support_dry_run()
-def remove_if_exists(path: Path, dry_run: bool | None = None) -> None:
+def remove_if_exists(path: Path, dry_run: bool | None = None) -> bool:
     """如果指定路径存在则删除指定路径
 
     Args:
         path (Path): 要删除的路径
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
+
+    Returns:
+        bool: 是否发生了移动
     """
 
     if path.exists():
         remove(path)
+        return True
+    else:
+        return False
 
 
 def _chdir_echo(path: Path) -> str:
