@@ -109,7 +109,7 @@ class environment(common.basic_environment):
         super().__init__(build, "15.0.0", name_without_version, home, jobs, prefix_dir, compress_level)
 
         self.prefix = self.prefix_dir / self.name
-        self.lib_prefix = self.prefix / self.target if self.cross_compiler else self.prefix
+        self.lib_prefix = self.prefix / self.target if self.toolchain_type != toolchain_type.canadian else self.prefix
         self.symlink_list = []
         self.share_dir = self.prefix / "share"
         self.gdbinit_path = self.share_dir / ".gdbinit"
@@ -307,6 +307,9 @@ class environment(common.basic_environment):
         self.remove_unused_glibc_file()
         self.strip_glibc_file()
         self.change_glibc_ldscript(arch)
+        dst_path = self.lib_prefix / "lib" / "libmvec_nonshared.a"
+        if not dst_path.exists():
+            common.symlink(dst_path, Path("libmvec.a"))
 
     def solve_libgcc_limits(self) -> None:
         """解决libgcc的limits.h中提供错误MB_LEN_MAX的问题"""
@@ -570,6 +573,17 @@ class build_environment:
         self.env.configure(*self.basic_option, *self.gcc_option)
         self.env.make()
         self.env.install()
+
+        # 安装Linux头文件
+        self.env.enter_build_dir("linux")
+        self.env.make(*self.linux_option)
+
+        # 编译安装glibc
+        self.env.enter_build_dir("glibc")
+        self.env.configure(*self.libc_option)
+        self.env.make()
+        self.env.install("install")
+        self.env.adjust_glibc(self.adjust_glibc_arch)
 
         # 编译binutils，如果启用gdb和gdbserver则一并编译
         self.env.enter_build_dir("binutils")
