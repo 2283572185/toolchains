@@ -118,7 +118,7 @@ class environment(common.basic_environment):
         lib_name = f'lib{"32" if self.host_32_bit else "64"}'
         self.rpath_dir = self.prefix / lib_name
         lib_path = Path("'$ORIGIN'") / ".." / lib_name
-        self.rpath_option = f'-Wl,-rpath={lib_path}'
+        self.rpath_option = f"-Wl,-rpath={lib_path}"
 
         if simple:
             return
@@ -136,7 +136,9 @@ class environment(common.basic_environment):
                     if common.check_lib_dir(lib, custom_lib_dir, False):
                         lib_dir = custom_lib_dir
                     else:
-                        print(f'Don\'t find custom lib "{lib}" in "{custom_lib_dir}", fallback to use common lib.')
+                        print(
+                            common.toolchains_warning(f'Can\'t find custom lib "{lib}" in "{custom_lib_dir}", fallback to use common lib.')
+                        )
                         common.check_lib_dir(lib, lib_dir)
                 case _:
                     common.check_lib_dir(lib, lib_dir)

@@ -51,6 +51,16 @@ class modifier_list:
         env.libc_option += ["--disable-lib64", "--enable-lib32"]
 
     @staticmethod
+    def arm_none_eabi(env:environment)->None:
+        """arm嵌入式cpu大多使用armv7-m，只支持Thumb2
+
+        Args:
+            env (environment): 当前gcc构建平台
+        """
+
+        env.gcc_option += ["--with-mode=thumb", "--with-arch=armv7-m"]
+
+    @staticmethod
     def modify(env: environment, target: str) -> None:
         target = target.replace("-", "_")
         if modifier := getattr(modifier_list, target, None):
