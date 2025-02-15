@@ -6,25 +6,6 @@ from . import common
 
 lib_list = ("expat", "gcc", "binutils", "gmp", "mpfr", "linux", "mingw", "pexports", "python-embed", "glibc", "newlib")
 
-# NOTE：添加平台后需要在此处注册dll_name_list
-dll_name_list: dict[str, list[str]] = {
-    "linux": [
-        "libgcc_s.so.1",
-        "libstdc++.so",
-        "libatomic.so",
-        "libquadmath.so",
-        "libgomp.so",
-    ],
-    "w64": [
-        "libgcc_s_seh-1.dll",
-        "libgcc_s_dw2-1.dll",
-        "libstdc++-6.dll",
-        "libatomic-1.dll",
-        "libquadmath-0.dll",
-    ],
-    "unknown": [],
-}
-
 # 带newlib的独立环境需禁用的特性列表
 disable_hosted_option = (
     "--disable-threads",
@@ -90,7 +71,6 @@ class environment(common.basic_environment):
     gdbinit_path: Path  # 安装后.gdbinit文件所在路径
     lib_dir_list: dict[str, Path]  # 所有库所在目录
     tool_prefix: str  # 工具的前缀，如x86_64-w64-mingw32-
-    dll_name_list: list[str]  # 该平台上需要保留调试符号的dll列表
     python_config_path: Path  # python_config.sh所在路径
     host_32_bit: bool  # host平台是否是32位的
     target_32_bit: bool  # target平台是否是32位的
@@ -138,14 +118,14 @@ class environment(common.basic_environment):
         lib_name = f'lib{"32" if self.host_32_bit else "64"}'
         self.rpath_dir = self.prefix / lib_name
         lib_path = Path("'$ORIGIN'") / ".." / lib_name
-        self.rpath_option = f'"-Wl,-rpath={lib_path}"'
+        self.rpath_option = f'-Wl,-rpath={lib_path}'
 
         if simple:
             return
 
         self.lib_dir_list = {}
-        self.host_field = common.triplet_field(self.host)
-        self.target_field = common.triplet_field(self.target)
+        self.host_field = common.triplet_field(self.host, True)
+        self.target_field = common.triplet_field(self.target, True)
         for lib in lib_list:
             lib_dir = self.home / lib
             match lib:
@@ -162,7 +142,6 @@ class environment(common.basic_environment):
                     common.check_lib_dir(lib, lib_dir)
             self.lib_dir_list[lib] = lib_dir
         self.tool_prefix = f"{self.target}-" if self.cross_compiler else ""
-        self.dll_name_list = dll_name_list[self.target_field.os]
 
         self.python_config_path = self.root_dir.parent / "script" / "python_config.sh"
         # 加载工具链
@@ -302,7 +281,7 @@ class environment(common.basic_environment):
         """剥离调试符号"""
 
         strip = f"{self.tool_prefix}strip"
-        common.run_command(f"{strip} {self.lib_prefix / 'lib' / '*.so'}", True)
+        common.run_command(f"{strip} {self.lib_prefix / 'lib' / '*.so.*'}", True)
 
     def change_glibc_ldscript(self, arch: str | None = None) -> None:
         """替换带有绝对路径的链接器脚本
@@ -479,8 +458,7 @@ class build_environment:
         ]
         self.need_gdb, self.need_gdbserver, self.need_newlib = gdb, gdbserver, newlib
         assert not self.env.freestanding or not self.need_gdbserver, common.toolchains_error(
-            "Cannot build gdbserver for freestanding platform.\n"
-            "You should use other server implementing the gdb protocol like OpenOCD."
+            "Cannot build gdbserver for freestanding platform.\n" "You should use other server implementing the gdb protocol like OpenOCD."
         )
 
         libc_option_list = {
@@ -509,7 +487,7 @@ class build_environment:
 
         w64_gdbsupport_option = 'CXXFLAGS="-O3 -D_WIN32_WINNT=0x0600"'
         gdb_option_list = {
-            "linux": [f"LDFLAGS={self.env.rpath_option}", "--with-python=/usr/bin/python3"],
+            "linux": [f'LDFLAGS="{self.env.rpath_option}"', "--with-python=/usr/bin/python3"],
             "w64": [
                 f"--with-python={self.env.python_config_path}",
                 w64_gdbsupport_option,
