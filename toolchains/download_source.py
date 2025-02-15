@@ -227,7 +227,7 @@ class all_lib_list:
         "g++",
         "python3",
         "tar",
-        "zstd", 
+        "zstd",
         "unzip",
         "libgmp-dev",
         "libmpfr-dev",
@@ -241,7 +241,7 @@ class all_lib_list:
         "lld",
         "libxml2-dev",
         "zlib1g-dev",
-        "wget"
+        "wget",
     ]
     git_lib_list_github: typing.Final[dict[str, git_url]] = {
         "gcc": git_url("github.com", "gcc-mirror/gcc.git"),
@@ -434,11 +434,12 @@ class configure(common.basic_configure):
         self.git_remote = git_prefer_remote[remote]
         self.register_encode_name_map("remote", "git_remote")
 
-    def check(self) -> None:
+    def check(self, need_glibc: bool) -> None:
         """检查各个参数是否合法"""
 
         common.check_home(self.home)
-        assert self.glibc_version, f"Invalid glibc version: {self.glibc_version}"
+        if need_glibc:
+            assert self.glibc_version, f"Invalid glibc version: {self.glibc_version}"
         assert self.shallow_clone_depth > 0, f"Invalid shallow clone depth: {self.shallow_clone_depth}."
         assert self.network_try_times >= 1, f"Invalid network try times: {self.network_try_times}."
 

@@ -30,10 +30,11 @@ def check_triplet(host: str, target: str) -> None:
             raise RuntimeError(common.toolchains_error(f'{name} "{input_triplet}" is not support.'))
 
 
-def _check_input(args: argparse.Namespace) -> None:
+def _check_input(args: argparse.Namespace, need_triplet: bool) -> None:
     assert args.jobs > 0, f"Invalid jobs: {args.jobs}."
     assert 1 <= args.compress_level <= 22, f"Invalid compress level: {args.compress_level}"
-    check_triplet(args.host, support_platform_list.target_list[0] if args.dump else args.target)
+    if need_triplet:
+        check_triplet(args.host, args.target)
 
 
 def build_specific_gcc(
@@ -82,64 +83,53 @@ def main() -> None:
     default_config = configure()
 
     parser = argparse.ArgumentParser(
-        description="Build gcc toolchain to specific platform.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description="Build GCC toolchain to specific platform.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    configure.add_argument(parser)
-    parser.add_argument("--build", type=str, help="The build platform of the GCC toolchain.", default=default_config.build)
-    parser.add_argument("--host", type=str, help="The host platform of the GCC toolchain.", default=default_config.build)
-    parser.add_argument("--target", type=str, help="The target platform of the GCC toolchain.", default=default_config.build)
-    parser.add_argument(
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands.")
+    build_parse = subparsers.add_parser("build", help="Build the GCC toolchain.")
+    subparsers.add_parser("dump", help="Print support platforms and exit.")
+
+    # 添加build相关选项
+    configure.add_argument(build_parse)
+    build_parse.add_argument("--host", type=str, help="The host platform of the GCC toolchain.", default=default_config.build)
+    build_parse.add_argument("--target", type=str, help="The target platform of the GCC toolchain.", default=default_config.build)
+    build_parse.add_argument(
         "--gdb", action=argparse.BooleanOptionalAction, help="Whether to enable gdb support in GCC toolchain.", default=default_config.gdb
     )
-    parser.add_argument(
+    build_parse.add_argument(
         "--gdbserver",
         action=argparse.BooleanOptionalAction,
         help="Whether to enable gdbserver support in GCC toolchain.",
         default=default_config.gdbserver,
     )
-    parser.add_argument(
+    build_parse.add_argument(
         "--newlib",
         action=argparse.BooleanOptionalAction,
         help="Whether to enable newlib support in GCC freestanding toolchain.",
         default=default_config.newlib,
     )
-    parser.add_argument(
-        "-j",
-        "--jobs",
-        type=int,
-        help="Number of concurrent jobs at build time.",
-        default=default_config.jobs,
-    )
-    action = parser.add_argument(
-        "--prefix", dest="prefix_dir", type=str, help="The dir contains all the prefix dir.", default=default_config.prefix_dir
-    )
-    setattr(action, "completer", common.dir_completer)
-    parser.add_argument(
+    build_parse.add_argument(
         "--nls",
         action=argparse.BooleanOptionalAction,
         help="Whether to enable nls(nature language support) support in GCC toolchain.",
         default=default_config.nls,
     )
-    parser.add_argument(
-        "--compress",
-        dest="compress_level",
-        type=int,
-        help="The compress level of zstd when packing. Support 1~22.",
-        default=default_config.compress_level,
-    )
-    parser.add_argument("--dump", action="store_true", help="Print support platforms and exit.")
 
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    _check_input(args)
-
+    _check_input(args, args.command == "build")
     current_config = configure.parse_args(args)
+
+    # 检查合并配置后环境是否正确
     current_config.check()
     current_config.save_config()
 
-    if args.dump:
-        dump_support_platform()
-    else:
-        build_specific_gcc(current_config, args.host, args.target)
+    match (args.command):
+        case "build":
+            build_specific_gcc(current_config, args.host, args.target)
+        case "dump":
+            dump_support_platform()
+        case _:
+            pass
 
-    common.status_counter.show_status() 
+    common.status_counter.show_status()

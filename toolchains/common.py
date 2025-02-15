@@ -891,6 +891,24 @@ def dir_completer(prefix: str, **_: dict[str, typing.Any]) -> list[str]:
     return _path_complete(prefix, False, [])
 
 
+def resolve_path(path: str | Path, base_path: Path) -> Path:
+    """将相对路径转化为基于base_path的绝对路径，已经是绝对路径则不变
+
+    Args:
+        path (str | Path): 输入路径
+        base_path (Path): 基路径
+
+    Returns:
+        Path: 转化后的绝对路径
+    """
+
+    path = Path(path)
+    if not path.is_absolute():
+        return (base_path / path).resolve()
+    else:
+        return path.resolve()
+
+
 class basic_configure:
     """配置基类
 
@@ -902,7 +920,7 @@ class basic_configure:
     _origin_home_path: str
     _args: argparse.Namespace  # 解析后的命令选项
 
-    encode_name_map: dict[str, str] = {"home": "_origin_home_path"}
+    encode_name_map: dict[str, str] = {}
 
     def get_public_fields(self) -> dict[str, typing.Any]:
         """以字典形式获取所有公开字段
@@ -923,9 +941,8 @@ class basic_configure:
         """
 
         cls = type(self)
-        assert (
-            param_name in inspect.signature(cls.__init__).parameters.keys()
-        ), f"The param {param_name} is not a parma of the __init__ function."
+        parma_list = self._get_default_param_list().keys()
+        assert param_name in parma_list, f"The param {param_name} is not a parma of the __init__ function."
         assert hasattr(self, attribute_name), f"The attribute {attribute_name} is not an attribute of self."
         cls.encode_name_map[param_name] = attribute_name
 
@@ -938,10 +955,11 @@ class basic_configure:
         """
 
         self._origin_home_path = home
-        self.home = (base_path / home).resolve()
+        self.register_encode_name_map("home", "_origin_home_path")
+        self.home = resolve_path(home, base_path)
 
-    @staticmethod
-    def add_argument(parser: argparse.ArgumentParser) -> None:
+    @classmethod
+    def add_argument(cls, parser: argparse.ArgumentParser) -> None:
         """为argparse添加--home、--export和--import选项
 
         Args:
@@ -952,7 +970,8 @@ class basic_configure:
             "--home",
             type=str,
             help="The home directory to find source trees. "
-            "If home is a relative path, it will be converted to an absolute path relative to the cwd.",
+            "If home is inputted as a relative path, it will be converted to an absolute path relative to the cwd."
+            "If home is imported as a relative path from configure file, it will be converted to an absolute path relative to the directory of the configure file",
             default=str(basic_configure().home),
         )
         setattr(action, "completer", dir_completer)
@@ -1009,10 +1028,12 @@ class basic_configure:
             try:
                 with file_path.open() as file:
                     import_config_list = json.load(file)
-                assert isinstance(import_config_list, dict), f"Invalid configure file. The configure file must begin with a object."
+                assert isinstance(import_config_list, dict), toolchains_error(
+                    f"Invalid configure file. The configure file must begin with a object."
+                )
                 import_config_list = typing.cast(dict[str, typing.Any], import_config_list)
             except Exception as e:
-                raise RuntimeError(f'Import file "{file_path}" failed: {e}')
+                raise RuntimeError(toolchains_error(f'Import file "{file_path}" failed: {e}'))
             import_config_list["base_path"] = file_path.parent
             return import_config_list
         else:
@@ -1189,6 +1210,7 @@ class basic_build_configure(basic_configure):
 
     build: str | None
     jobs: int
+    _origin_prefix_dir: str
     prefix_dir: Path
     compress_level: int
 
@@ -1196,23 +1218,66 @@ class basic_build_configure(basic_configure):
         self,
         build: str | None = None,
         jobs: int | None = None,
-        prefix_dir: str | None = None,
+        prefix_dir: str = str(Path.home()),
         compress_level: int = 19,
+        base_path: Path = Path.cwd(),
     ) -> None:
         """初始化工具链构建配置
 
         Args:
             build (str | None, optional): 构建平台. 默认为gcc -dumpmachine输出的结果，即当前平台.
             jobs (int | None, optional): 构建时的并发数. 默认为当前平台cpu核心数的1.5倍.
-            prefix_dir (str | None, optional): 工具链安装根目录. 默认为用户主目录.
+            prefix_dir (str, optional): 工具链安装根目录. 默认为用户主目录.
             compress_level (int, optional): zstd压缩等级(1~22). 默认为19级
+            base_path (Path, optional): 将prefix转化为绝对路径时使用的基路径
         """
 
         super().__init__()
         self.build = build or get_default_build_platform()
         self.jobs = jobs or (os.cpu_count() or 1) + 2
-        self.prefix_dir = Path(prefix_dir) if prefix_dir else Path.home()
+        self._origin_prefix_dir = prefix_dir
+        self.register_encode_name_map("prefix_dir", "_origin_prefix_dir")
+        self.prefix_dir = resolve_path(prefix_dir, base_path)
         self.compress_level = compress_level
+
+    @classmethod
+    def add_argument(cls, parser: argparse.ArgumentParser) -> None:
+        """为argparse添加--build、--jobs、--prefix和--compress选项
+
+        Args:
+            parser (argparse.ArgumentParser): 命令行解析器
+        """
+
+        super().add_argument(parser)
+        toolchain_type = typing.cast(str, getattr(cls, "toolchain_type"))
+        default_config = basic_build_configure()
+        parser.add_argument(
+            "--build", type=str, help=f"The build platform of the {toolchain_type} toolchain.", default=default_config.build
+        )
+        parser.add_argument(
+            "-j",
+            "--jobs",
+            type=int,
+            help="Number of concurrent jobs at build time.",
+            default=default_config.jobs,
+        )
+        action = parser.add_argument(
+            "--prefix",
+            dest="prefix_dir",
+            type=str,
+            help="The dir to install the toolchain."
+            "If prefix is inputted as a relative path, it will be converted to an absolute path relative to the cwd."
+            "If prefix is imported as a relative path from configure file, it will be converted to an absolute path relative to the directory of the configure file",
+            default=default_config.prefix_dir,
+        )
+        setattr(action, "completer", dir_completer)
+        parser.add_argument(
+            "--compress",
+            dest="compress_level",
+            type=int,
+            help="The compress level of zstd when packing. Support 1~22.",
+            default=default_config.compress_level,
+        )
 
     def check(self) -> None:
         """检查工具链构建配置是否合法"""

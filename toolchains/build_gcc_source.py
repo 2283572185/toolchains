@@ -98,6 +98,7 @@ class configure(common.basic_build_configure):
     gdbserver: bool
     newlib: bool
     nls: bool
+    toolchain_type: str = "GCC"
 
     def __init__(
         self,

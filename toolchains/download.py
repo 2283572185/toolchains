@@ -336,7 +336,7 @@ def main() -> None:
     current_config = configure.parse_args(args)
 
     # 检查合并配置后环境是否正确
-    current_config.check()
+    current_config.check(args.command == "download")
     current_config.save_config()
 
     match (args.command):
