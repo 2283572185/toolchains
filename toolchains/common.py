@@ -10,9 +10,10 @@ import os
 import shutil
 import subprocess
 import typing
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Self
+from contextlib import contextmanager
 
 import colorama
 
@@ -500,18 +501,17 @@ def insert_environ(key: str, value: str | Path) -> None:
     os.environ[key] = f"{value}{os.pathsep}{os.environ[key]}"
 
 
-class chdir_guard:
-    """在构造时进入指定工作目录并在析构时回到原工作目录"""
+@contextmanager
+def chdir_guard(path: Path, dry_run: bool | None = None) -> Generator[None, None, None]:
+    """临时进入指定的工作目录
 
-    cwd: Path
-    dry_run: bool | None
-
-    def __init__(self, path: Path, dry_run: bool | None = None) -> None:
-        self.dry_run = dry_run
-        self.cwd = chdir(path, dry_run) or Path()
-
-    def __del__(self) -> None:
-        chdir(self.cwd, self.dry_run)
+    Args:
+        path (Path): 要进入的工作目录
+        dry_run (bool | None, optional): 是否只回显而不运行命令. 默认为None.
+    """
+    cwd = chdir(path, dry_run) or Path()
+    yield
+    chdir(cwd, dry_run)
 
 
 def _check_lib_dir_echo(lib: str, lib_dir: Path, dry_run: bool | None) -> str:

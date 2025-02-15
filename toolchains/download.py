@@ -48,8 +48,8 @@ def download_gcc_contrib(config: configure) -> None:
     Args:
         config (configure): 源代码下载环境
     """
-    _ = common.chdir_guard(config.home / "gcc")
-    common.run_command("contrib/download_prerequisites")
+    with common.chdir_guard(config.home / "gcc"):
+        common.run_command("contrib/download_prerequisites")
 
 
 def download_specific_extra_lib(config: configure, lib: str) -> None:

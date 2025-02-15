@@ -453,8 +453,8 @@ class after_download_list:
             config (configure): 当前源代码下载配置
         """
 
-        _ = common.chdir_guard(config.home / "expat" / "expat")
-        common.run_command("./buildconf.sh")
+        with common.chdir_guard(config.home / "expat" / "expat"):
+            common.run_command("./buildconf.sh")
 
     @staticmethod
     def pexports(config: configure) -> None:
@@ -464,8 +464,8 @@ class after_download_list:
             config (configure): 当前源代码下载配置
         """
 
-        _ = common.chdir_guard(config.home / "pexports")
-        common.run_command("autoreconf -if")
+        with common.chdir_guard(config.home / "pexports"):
+            common.run_command("autoreconf -if")
 
     @staticmethod
     def python_embed(config: configure) -> None:
