@@ -745,6 +745,15 @@ class basic_environment:
         with (self.home / ".bashrc").open("a") as file:
             file.write(f"export PATH={self.bin_dir}:$PATH\n")
 
+    def installed(self) -> bool:
+        """判断工具链是否已经安装
+
+        Returns:
+            bool: 工具链是否已经安装
+        """
+
+        return self.bin_dir.exists()
+
 
 class triplet_field:
     """平台名称各个域的内容"""
