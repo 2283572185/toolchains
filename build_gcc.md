@@ -100,6 +100,31 @@ source ~/.bashrc
 
 ### 5.编译安装binutils和gdb
 
+由于readline使用k&r c编写，即`int foo()`具有可变参数，使用新gcc编译会导致错误，因此需要对如下文件进行修改：
+
+```c
+// binutils/readline/readline/tcap.h
+
+extern int tgetent (...);
+extern int tgetflag (...);
+extern int tgetnum (...);
+extern char *tgetstr (...);
+
+extern int tputs (...);
+
+extern char *tgoto (...);
+```
+
+对gprofng需要进行如下修改：
+
+```c
+#include "hwcfuncs.h"
+
+#ifdef __linux__
+#define HWCFUNCS_SIGNAL         SIGIO
+#define HWCFUNCS_SIGNAL_STRING  "SIGIO"
+```
+
 ```shell
 cd ~/binutils
 mkdir build
