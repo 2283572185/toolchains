@@ -3,15 +3,16 @@ import json
 import pathlib
 import typing
 
-import py # type: ignore
+import py  # type: ignore
 import pytest
 
-from toolchains.common import basic_configure, command_dry_run
+import toolchains.common as common
+from toolchains.common import command_dry_run
 
 type Path = py.path.LocalPath
 
 
-class configure0(basic_configure):
+class basic_configure(common.basic_configure):
     jobs: int
 
     def __init__(self, jobs: int = 1) -> None:
@@ -19,7 +20,7 @@ class configure0(basic_configure):
         self.jobs = jobs
 
 
-class configure(configure0):
+class configure(basic_configure):
     prefix: pathlib.Path
     libs: set[str]
     _origin_libs: set[str]

@@ -11,9 +11,9 @@ import shutil
 import subprocess
 import typing
 from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Self
-from contextlib import contextmanager
 
 import colorama
 

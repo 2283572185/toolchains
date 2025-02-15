@@ -51,7 +51,7 @@ class modifier_list:
         env.libc_option += ["--disable-lib64", "--enable-lib32"]
 
     @staticmethod
-    def arm_none_eabi(env:environment)->None:
+    def arm_none_eabi(env: environment) -> None:
         """arm嵌入式cpu大多使用armv7-m，只支持Thumb2
 
         Args:
