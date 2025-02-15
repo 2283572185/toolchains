@@ -1,0 +1,2 @@
+OUTPUT_FORMAT(elf64-tradlittlemips)
+GROUP (libc.so.6 libc_nonshared.a  AS_NEEDED (ld.so.1 ))

@@ -88,6 +88,7 @@ class support_platform_list:
         "i686-w64-mingw32",
         "arm-none-eabi",
         "x86_64-elf",
+        "mips64el-linux-gnuabi64",
     ]
 
 

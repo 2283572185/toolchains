@@ -106,7 +106,7 @@ class environment(common.basic_environment):
         self.cross_compiler = self.host != self.target
 
         name_without_version = (f"{self.host}-host-{self.target}-target" if self.cross_compiler else f"{self.host}-native") + "-gcc"
-        super().__init__(build, "15.0.0", name_without_version, home, jobs, prefix_dir, compress_level)
+        super().__init__(build, "15.0.1", name_without_version, home, jobs, prefix_dir, compress_level)
 
         self.prefix = self.prefix_dir / self.name
         self.lib_prefix = self.prefix / self.target if self.toolchain_type != toolchain_type.canadian else self.prefix
@@ -516,7 +516,15 @@ class build_environment:
         if gdb and self.host_os == "w64":
             self.env.build_libpython()
 
-        linux_arch_list = {"i686": "x86", "x86_64": "x86", "arm": "arm", "aarch64": "arm64", "loongarch64": "loongarch", "riscv64": "riscv"}
+        linux_arch_list = {
+            "i686": "x86",
+            "x86_64": "x86",
+            "arm": "arm",
+            "aarch64": "arm64",
+            "loongarch64": "loongarch",
+            "riscv64": "riscv",
+            "mips64el": "mips",
+        }
         self.linux_option = [f"ARCH={linux_arch_list[self.target_arch]}", f"INSTALL_HDR_PATH={self.env.lib_prefix}", "headers_install"]
 
         self.gdbserver_option = ["--disable-gdb", f"--host={self.env.target}", "--enable-gdbserver", "--disable-binutils"]
