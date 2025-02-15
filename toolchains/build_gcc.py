@@ -27,7 +27,7 @@ def check_triplet(host: str, target: str) -> None:
             if input_triplet_field.weak_eq(support_triplet_field):
                 break
         else:
-            assert False, f'{name} "{input_triplet}" is not support.'
+            raise RuntimeError(common.toolchains_error(f'{name} "{input_triplet}" is not support.'))
 
 
 def _check_input(args: argparse.Namespace) -> None:
@@ -53,6 +53,7 @@ def build_specific_gcc(
     env = environment(host=host, target=target, **config_list)
     modifier_list.modify(env, target)
     env.build()
+    common.toolchains_print(common.toolchains_success(f"Build {env.env.name} successfully."))
 
 
 def dump_support_platform() -> None:
@@ -134,10 +135,11 @@ def main() -> None:
 
     current_config = configure.parse_args(args)
     current_config.check()
+    current_config.save_config()
 
     if args.dump:
         dump_support_platform()
     else:
         build_specific_gcc(current_config, args.host, args.target)
 
-    current_config.save_config()
+    common.status_counter.show_status() 

@@ -50,6 +50,76 @@ class color(enum.StrEnum):
         return f"{self}{string}{color.reset}"
 
 
+class status_counter:
+    """当前程序状态的计数"""
+
+    class __counter:
+        error: int = 0
+        warning: int = 0
+        note: int = 0
+        info: int = 0
+        success: int = 0
+
+    __quiet: bool = False
+
+    @classmethod
+    def add_error(cls) -> None:
+        """增加错误计数"""
+
+        cls.__counter.error += 1
+
+    @classmethod
+    def add_warning(cls) -> None:
+        """增加警告计数"""
+
+        cls.__counter.warning += 1
+
+    @classmethod
+    def add_note(cls) -> None:
+        """增加注意计数"""
+
+        cls.__counter.note += 1
+
+    @classmethod
+    def add_info(cls) -> None:
+        """增加信息计数"""
+
+        cls.__counter.info += 1
+
+    @classmethod
+    def add_success(cls) -> None:
+        """增加成功计数"""
+
+        cls.__counter.success += 1
+
+    @classmethod
+    def __getitem__(cls, name: str) -> int:
+        assert name in ("error", "warning", "note", "info", "success")
+        return getattr(cls.__counter, name)
+
+    @classmethod
+    def get_quiet(cls) -> bool:
+        return cls.__quiet
+
+    @classmethod
+    def set_quiet(cls, quiet: bool) -> None:
+        cls.__quiet = quiet
+
+    @classmethod
+    def show_status(cls) -> None:
+        """根据全局状态显示当前状态计数"""
+
+        if not cls.__quiet:
+            print(
+                color.toolchains,
+                color.error.wrapper(f"error: {cls.__counter.error}"),
+                color.warning.wrapper(f"waring: {cls.__counter.warning}"),
+                color.note.wrapper(f"note: {cls.__counter.note}"),
+                f"info: {cls.__counter.info}",
+                color.success.wrapper(f"success: {cls.__counter.success}"),
+            )
+
+
 def toolchains_warning(string: str) -> str:
     """返回toolchains的警告信息
 
@@ -60,6 +130,7 @@ def toolchains_warning(string: str) -> str:
         str: [toolchains] warning
     """
 
+    status_counter.add_warning()
     return f"{color.toolchains} {color.warning.wrapper(string)}"
 
 
@@ -73,6 +144,7 @@ def toolchains_error(string: str) -> str:
         str: [toolchains] error
     """
 
+    status_counter.add_error()
     return f"{color.toolchains} {color.error.wrapper(string)}"
 
 
@@ -86,6 +158,7 @@ def toolchains_success(string: str) -> str:
         str: [toolchains] success
     """
 
+    status_counter.add_success()
     return f"{color.toolchains} {color.success.wrapper(string)}"
 
 
@@ -99,6 +172,7 @@ def toolchains_note(string: str) -> str:
         str: [toolchains] note
     """
 
+    status_counter.add_note()
     return f"{color.toolchains} {color.note.wrapper(string)}"
 
 
@@ -112,53 +186,54 @@ def toolchains_info(string: str) -> str:
         str: [toolchain] info
     """
 
+    status_counter.add_info()
     return f"{color.toolchains} {string}"
 
 
 class command_dry_run:
     """是否只显示命令而不实际执行"""
 
-    _dry_run: bool = False
+    __dry_run: bool = False
 
     @classmethod
     def get(cls) -> bool:
-        return cls._dry_run
+        return cls.__dry_run
 
     @classmethod
     def set(cls, dry_run: bool) -> None:
-        cls._dry_run = dry_run
+        cls.__dry_run = dry_run
 
 
 class command_quiet:
     """运行命令时是否添加--quiet --silent等参数"""
 
-    _quiet: bool = False
+    __quiet: bool = False
 
     @classmethod
     def get(cls) -> bool:
-        return cls._quiet
+        return cls.__quiet
 
     @classmethod
     def get_option(cls) -> str:
-        return "--quiet" if cls._quiet else ""
+        return "--quiet" if cls.__quiet else ""
 
     @classmethod
     def set(cls, quiet: bool) -> None:
-        cls._quiet = quiet
+        cls.__quiet = quiet
 
 
 class toolchains_quiet:
     """是否显示toolchains的提示信息"""
 
-    _quiet: bool = False
+    __quiet: bool = False
 
     @classmethod
     def get(cls) -> bool:
-        return cls._quiet
+        return cls.__quiet
 
     @classmethod
     def set(cls, quiet: bool) -> None:
-        cls._quiet = quiet
+        cls.__quiet = quiet
 
 
 def toolchains_print(
@@ -910,7 +985,8 @@ class basic_configure:
             action="count",
             help="Increase quiet level. (use -q, -qq, etc.)"
             'Level 1 will add options like "--quiet" to commands we run if possible.'
-            "Level 2 and above will disable echos of this program.",
+            "Level 2 will disable command echos of this program."
+            "Level 3 and above will disable the echo of status counter in this program.",
             default=0,
         )
 
@@ -1004,6 +1080,8 @@ class basic_configure:
             command_quiet.set(True)
         if args.quiet >= 2:
             toolchains_quiet.set(True)
+        if args.quiet >= 3:
+            status_counter.set_quiet(True)
         args_list = vars(args)
         input_list: dict[str, typing.Any] = {}
         default_list: dict[str, typing.Any] = cls._get_default_param_list()

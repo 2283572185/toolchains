@@ -50,6 +50,7 @@ def download_gcc_contrib(config: configure) -> None:
     """
     with common.chdir_guard(config.home / "gcc"):
         common.run_command("contrib/download_prerequisites", echo=not common.command_quiet.get())
+    common.status_counter.add_success()
 
 
 def download_specific_extra_lib(config: configure, lib: str) -> None:
@@ -63,6 +64,7 @@ def download_specific_extra_lib(config: configure, lib: str) -> None:
     extra_lib_v = all_lib_list.extra_lib_list[lib]
     for file, url in extra_lib_v.url_list.items():
         common.run_command(f"wget {url} {common.command_quiet.get_option()} -c -t {config.network_try_times} -O {config.home / file}")
+    common.status_counter.add_success()
 
 
 def download(config: configure) -> None:
@@ -88,6 +90,7 @@ def download(config: configure) -> None:
             else:
                 raise RuntimeError(common.toolchains_error(f"Clone {lib} failed."))
             after_download_list.after_download_specific_lib(config, lib)
+            common.status_counter.add_success()
         else:
             _exist_echo(lib)
 
@@ -142,6 +145,7 @@ def update(config: configure) -> None:
                     else:
                         raise RuntimeError(common.toolchains_error(f"Pull {lib} failed."))
                     after_download_list.after_download_specific_lib(config, lib)
+                    common.status_counter.add_success()
                 else:
                     _up_to_date_echo(lib)
 
@@ -348,3 +352,5 @@ def main() -> None:
             remove(current_config, args.remove or all_lib_list.all_lib_list)
         case _:
             pass
+
+    common.status_counter.show_status()
