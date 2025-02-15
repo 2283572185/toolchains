@@ -14,12 +14,12 @@ from .download_source import *
 
 def _exist_echo(lib: str) -> None:
     """包已存在时显示提示"""
-    print(common.toolchains_note(f"Lib {lib} exists, skip download."))
+    common.toolchains_print(common.toolchains_note(f"Lib {lib} exists, skip download."))
 
 
 def _up_to_date_echo(lib: str) -> None:
     """包已是最新时显示提示"""
-    print(common.toolchains_note(f"Lib {lib} is up to date, skip update."))
+    common.toolchains_print(common.toolchains_note(f"Lib {lib} is up to date, skip update."))
 
 
 def _check_version_echo(lib: str, result: int) -> bool:
@@ -33,7 +33,7 @@ def _check_version_echo(lib: str, result: int) -> bool:
         bool: 是否需要更新
     """
     if result == 1:
-        print(common.toolchains_note(f"Lib {lib} is newer than default version, skip update."))
+        common.toolchains_print(common.toolchains_note(f"Lib {lib} is newer than default version, skip update."))
         return False
     elif result == 0:
         _up_to_date_echo(lib)
@@ -49,7 +49,7 @@ def download_gcc_contrib(config: configure) -> None:
         config (configure): 源代码下载环境
     """
     with common.chdir_guard(config.home / "gcc"):
-        common.run_command("contrib/download_prerequisites")
+        common.run_command("contrib/download_prerequisites", echo=not common.command_quiet.get())
 
 
 def download_specific_extra_lib(config: configure, lib: str) -> None:
@@ -62,7 +62,7 @@ def download_specific_extra_lib(config: configure, lib: str) -> None:
     assert lib in all_lib_list.extra_lib_list, common.toolchains_error(f"Unknown extra lib: {lib}")
     extra_lib_v = all_lib_list.extra_lib_list[lib]
     for file, url in extra_lib_v.url_list.items():
-        common.run_command(f"wget {url} -c -t {config.network_try_times} -O {config.home / file}")
+        common.run_command(f"wget {url} {common.command_quiet.get_option()} -c -t {config.network_try_times} -O {config.home / file}")
 
 
 def download(config: configure) -> None:
@@ -80,11 +80,11 @@ def download(config: configure) -> None:
             extra_option = " ".join(extra_options)
             for _ in range(config.network_try_times):
                 try:
-                    common.run_command(f"git clone {url} {extra_option} {lib_dir}")
+                    common.run_command(f"git clone {url} {common.command_quiet.get_option()} {extra_option} {lib_dir}")
                     break
                 except Exception:
                     common.remove_if_exists(lib_dir)
-                    print(common.toolchains_warning(f"Clone {lib} failed, retrying."))
+                    common.toolchains_print(common.toolchains_warning(f"Clone {lib} failed, retrying."))
             else:
                 raise RuntimeError(common.toolchains_error(f"Clone {lib} failed."))
             after_download_list.after_download_specific_lib(config, lib)
@@ -105,7 +105,7 @@ def download(config: configure) -> None:
             break
     else:
         _exist_echo("gcc_contrib")
-    print(common.toolchains_success("Download libs successfully."))
+    common.toolchains_print(common.toolchains_success("Download libs successfully."))
 
 
 def update(config: configure) -> None:
@@ -125,7 +125,7 @@ def update(config: configure) -> None:
                     common.run_command(f"git -C {lib_dir} fetch --dry-run", capture=(file, file))
                     break
                 except Exception:
-                    print(common.toolchains_warning(f"Fetch {lib} failed, retrying."))
+                    common.toolchains_print(common.toolchains_warning(f"Fetch {lib} failed, retrying."))
                     file.truncate(0)
                     file.seek(0, os.SEEK_SET)
             else:
@@ -135,10 +135,10 @@ def update(config: configure) -> None:
                 if file.tell():
                     for _ in range(config.network_try_times):
                         try:
-                            common.run_command(f"git -C {lib_dir} pull")
+                            common.run_command(f"git -C {lib_dir} pull {common.command_quiet.get_option()}")
                             break
                         except Exception:
-                            print(common.toolchains_warning(f"Pull {lib} failed, retrying."))
+                            common.toolchains_print(common.toolchains_warning(f"Pull {lib} failed, retrying."))
                     else:
                         raise RuntimeError(common.toolchains_error(f"Pull {lib} failed."))
                     after_download_list.after_download_specific_lib(config, lib)
@@ -155,7 +155,7 @@ def update(config: configure) -> None:
             download_specific_extra_lib(config, lib)
             after_download_list.after_download_specific_lib(config, lib)
 
-    print(common.toolchains_success("Update libs successfully."))
+    common.toolchains_print(common.toolchains_success("Update libs successfully."))
 
 
 def auto_download(config: configure) -> None:
@@ -195,7 +195,7 @@ def remove_specific_lib(config: configure, lib: str) -> None:
     elif lib == "gcc_contrib":
         gcc_dir = config.home / "gcc"
         if not gcc_dir.exists():
-            print(common.toolchains_note(f"Lib {lib} does not exist, skip remove."))
+            common.toolchains_print(common.toolchains_note(f"Lib {lib} does not exist, skip remove."))
             return
         install_item = [
             gcc_dir / item for item in filter(lambda x: x.name.startswith(("gettext", "gmp", "mpc", "mpfr", "isl")), gcc_dir.iterdir())
@@ -212,7 +212,7 @@ def remove_specific_lib(config: configure, lib: str) -> None:
         except Exception as e:
             raise RuntimeError(common.toolchains_error(f"Remove lib {lib} failed: {e}"))
     if not removed:
-        print(common.toolchains_warning(f"Lib {lib} does not exist, skip remove."))
+        common.toolchains_print(common.toolchains_warning(f"Lib {lib} does not exist, skip remove."))
 
 
 def remove(config: configure, libs: list[str]) -> None:
@@ -227,7 +227,7 @@ def remove(config: configure, libs: list[str]) -> None:
     """
     for lib in libs:
         remove_specific_lib(config, lib)
-    print(common.toolchains_success("Remove libs successfully."))
+    common.toolchains_print(common.toolchains_success("Remove libs successfully."))
 
 
 def _check_input(args: argparse.Namespace) -> None:

@@ -129,6 +129,54 @@ class command_dry_run:
         cls._dry_run = dry_run
 
 
+class command_quiet:
+    """运行命令时是否添加--quiet --silent等参数"""
+
+    _quiet: bool = False
+
+    @classmethod
+    def get(cls) -> bool:
+        return cls._quiet
+
+    @classmethod
+    def get_option(cls) -> str:
+        return "--quiet" if cls._quiet else ""
+
+    @classmethod
+    def set(cls, quiet: bool) -> None:
+        cls._quiet = quiet
+
+
+class toolchains_quiet:
+    """是否显示toolchains的提示信息"""
+
+    _quiet: bool = False
+
+    @classmethod
+    def get(cls) -> bool:
+        return cls._quiet
+
+    @classmethod
+    def set(cls, quiet: bool) -> None:
+        cls._quiet = quiet
+
+
+def toolchains_print(
+    *values: object,
+    sep: str | None = " ",
+    end: str | None = "\n",
+) -> None:
+    """根据全局设置决定是否需要打印信息
+
+    Args:
+        sep (str | None, optional): 分隔符. 默认为 " ".
+        end (str | None, optional): 行尾序列. 默认为 "\n".
+    """
+
+    if not toolchains_quiet.get():
+        print(*values, sep=sep, end=end)
+
+
 def need_dry_run(dry_run: bool | None) -> bool:
     """根据输入和全局状态共同判断是否只回显而不运行命令
 
@@ -169,7 +217,7 @@ def support_dry_run[
                     param_list.append(bound_args.arguments[key])
                 echo = echo_fn(*param_list)
                 if echo is not None:
-                    print(echo, end=end)
+                    toolchains_print(echo, end=end)
             dry_run: bool | None = bound_args.arguments.get("dry_run")
             assert isinstance(dry_run, bool | None), f"The param dry_run must be a bool or None."
             if need_dry_run(dry_run):
@@ -249,7 +297,7 @@ def run_command(
         if not ignore_error:
             raise RuntimeError(toolchains_error(f'Command "{command}" failed.'))
         elif echo:
-            print(toolchains_warning(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.'))
+            toolchains_print(toolchains_warning(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.'))
         return None
     return result
 
@@ -546,11 +594,11 @@ def check_lib_dir(lib: str, lib_dir: Path, do_assert: bool = True, dry_run: bool
 
     message = toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
     if not do_assert and not lib_dir.exists():
-        print(color.error.wrapper("no"))
+        toolchains_print(color.error.wrapper("no"))
         return False
     else:
         assert lib_dir.exists(), message
-    print(color.success.wrapper("yes"))
+    toolchains_print(color.success.wrapper("yes"))
     return True
 
 
@@ -856,6 +904,15 @@ class basic_configure:
             help="Preview the commands without actually executing them.",
             default=False,
         )
+        parser.add_argument(
+            "-q",
+            "--quiet",
+            action="count",
+            help="Increase quiet level. (use -q, -qq, etc.)"
+            'Level 1 will add options like "--quiet" to commands we run if possible.'
+            "Level 2 and above will disable echos of this program.",
+            default=0,
+        )
 
     @staticmethod
     def load_config(args: argparse.Namespace) -> dict[str, typing.Any]:
@@ -943,6 +1000,10 @@ class basic_configure:
 
         check_home(args.home)
         command_dry_run.set(args.dry_run)
+        if args.quiet >= 1:
+            command_quiet.set(True)
+        if args.quiet >= 2:
+            toolchains_quiet.set(True)
         args_list = vars(args)
         input_list: dict[str, typing.Any] = {}
         default_list: dict[str, typing.Any] = cls._get_default_param_list()

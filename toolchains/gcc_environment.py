@@ -136,7 +136,7 @@ class environment(common.basic_environment):
                     if common.check_lib_dir(lib, custom_lib_dir, False):
                         lib_dir = custom_lib_dir
                     else:
-                        print(
+                        common.toolchains_print(
                             common.toolchains_warning(f'Can\'t find custom lib "{lib}" in "{custom_lib_dir}", fallback to use common lib.')
                         )
                         common.check_lib_dir(lib, lib_dir)
@@ -193,7 +193,7 @@ class environment(common.basic_environment):
 
         options = " ".join(("", *option))
         # 编译glibc时LD_LIBRARY_PATH中不能包含当前路径，此处直接清空LD_LIBRARY_PATH环境变量
-        common.run_command(f"../configure {options} LD_LIBRARY_PATH=")
+        common.run_command(f"../configure {common.command_quiet.get_option()} {options} LD_LIBRARY_PATH=")
 
     def make(self, *target: str, ignore_error: bool = False) -> None:
         """自动对库进行编译
@@ -203,7 +203,7 @@ class environment(common.basic_environment):
         """
 
         targets = " ".join(("", *target))
-        common.run_command(f"make {targets} -j {self.jobs}", ignore_error)
+        common.run_command(f"make {common.command_quiet.get_option()} {targets} -j {self.jobs}", ignore_error)
 
     def install(self, *target: str, ignore_error: bool = False) -> None:
         """自动对库进行安装
@@ -216,7 +216,7 @@ class environment(common.basic_environment):
             targets = " ".join(("", *target))
         else:
             targets = "install-strip"
-        common.run_command(f"make {targets} -j {self.jobs}", ignore_error)
+        common.run_command(f"make {common.command_quiet.get_option()} {targets} -j {self.jobs}", ignore_error)
 
     def copy_gdbinit(self) -> None:
         """复制.gdbinit文件"""
@@ -232,8 +232,8 @@ class environment(common.basic_environment):
         def_path = lib_dir / "libpython.def"
         if not lib_path.exists():
             dll_list = list(filter(lambda dll: dll.name.startswith("python") and dll.name.endswith(".dll"), lib_dir.iterdir()))
-            assert dll_list != [], f'Cannot find python*.dll in "{lib_dir}" directory.'
-            assert len(dll_list) == 1, f'Find too many python*.dll in "{lib_dir}" directory.'
+            assert dll_list != [], common.toolchains_error(f'Cannot find python*.dll in "{lib_dir}" directory.')
+            assert len(dll_list) == 1, common.toolchains_error(f'Find too many python*.dll in "{lib_dir}" directory.')
             dll_path = lib_dir / dll_list[0]
             # 工具链最后运行在宿主平台上，故而应该使用宿主平台的工具链从.lib文件制作.a文件
             common.run_command(f"{self.host}-pexports {dll_path} > {def_path}")

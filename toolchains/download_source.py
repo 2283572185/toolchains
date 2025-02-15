@@ -227,7 +227,7 @@ class all_lib_list:
         "g++",
         "python3",
         "tar",
-        "zstd",
+        "zstd", 
         "unzip",
         "libgmp-dev",
         "libmpfr-dev",
@@ -241,6 +241,7 @@ class all_lib_list:
         "lld",
         "libxml2-dev",
         "zlib1g-dev",
+        "wget"
     ]
     git_lib_list_github: typing.Final[dict[str, git_url]] = {
         "gcc": git_url("github.com", "gcc-mirror/gcc.git"),
