@@ -667,12 +667,11 @@ def check_lib_dir(lib: str, lib_dir: Path, do_assert: bool = True, dry_run: bool
         bool: 返回库是否存在
     """
 
-    message = toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
     if not do_assert and not lib_dir.exists():
         toolchains_print(color.error.wrapper("no"))
         return False
     else:
-        assert lib_dir.exists(), message
+        assert lib_dir.exists(), toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
     toolchains_print(color.success.wrapper("yes"))
     return True
 
