@@ -17,7 +17,7 @@ from typing import Self
 import colorama
 
 
-class _color(enum.StrEnum):
+class color(enum.StrEnum):
     """cli使用的颜色
 
     Attributes:
@@ -46,7 +46,7 @@ class _color(enum.StrEnum):
             str: 输出字符串
         """
 
-        return f"{self}{string}{_color.reset}"
+        return f"{self}{string}{color.reset}"
 
 
 def toolchains_warning(string: str) -> str:
@@ -59,7 +59,7 @@ def toolchains_warning(string: str) -> str:
         str: [toolchains] warning
     """
 
-    return f"{_color.toolchains} {_color.warning.wrapper(string)}"
+    return f"{color.toolchains} {color.warning.wrapper(string)}"
 
 
 def toolchains_error(string: str) -> str:
@@ -72,7 +72,7 @@ def toolchains_error(string: str) -> str:
         str: [toolchains] error
     """
 
-    return f"{_color.toolchains} {_color.error.wrapper(string)}"
+    return f"{color.toolchains} {color.error.wrapper(string)}"
 
 
 def toolchains_success(string: str) -> str:
@@ -85,7 +85,7 @@ def toolchains_success(string: str) -> str:
         str: [toolchains] success
     """
 
-    return f"{_color.toolchains} {_color.success.wrapper(string)}"
+    return f"{color.toolchains} {color.success.wrapper(string)}"
 
 
 def toolchains_note(string: str) -> str:
@@ -98,7 +98,7 @@ def toolchains_note(string: str) -> str:
         str: [toolchains] note
     """
 
-    return f"{_color.toolchains} {_color.note.wrapper(string)}"
+    return f"{color.toolchains} {color.note.wrapper(string)}"
 
 
 def toolchains_info(string: str) -> str:
@@ -111,7 +111,7 @@ def toolchains_info(string: str) -> str:
         str: [toolchain] info
     """
 
-    return f"{_color.toolchains} {string}"
+    return f"{color.toolchains} {string}"
 
 
 class command_dry_run:
@@ -126,6 +126,19 @@ class command_dry_run:
     @classmethod
     def set(cls, dry_run: bool) -> None:
         cls._dry_run = dry_run
+
+
+def need_dry_run(dry_run: bool | None) -> bool:
+    """根据输入和全局状态共同判断是否只回显而不运行命令
+
+    Args:
+        dry_run (bool | None): 当前是否只回显而不运行命令
+
+    Returns:
+        bool: 是否只回显而不运行命令
+    """
+
+    return bool(dry_run is None and command_dry_run.get() or dry_run)
 
 
 def support_dry_run[
@@ -158,7 +171,7 @@ def support_dry_run[
                     print(echo, end=end)
             dry_run: bool | None = bound_args.arguments.get("dry_run")
             assert isinstance(dry_run, bool | None), f"The param dry_run must be a bool or None."
-            if dry_run is None and command_dry_run.get() or dry_run:
+            if need_dry_run(dry_run):
                 return None
             return fn(*bound_args.args, **bound_args.kwargs)
 
@@ -501,7 +514,7 @@ class chdir_guard:
         chdir(self.cwd, self.dry_run)
 
 
-def _check_lib_dir_echo(lib: str, lib_dir: Path) -> str:
+def _check_lib_dir_echo(lib: str, lib_dir: Path, dry_run: bool | None) -> str:
     """在检查库目录是否存在时回显信息
 
     Args:
@@ -512,7 +525,9 @@ def _check_lib_dir_echo(lib: str, lib_dir: Path) -> str:
         str: 回显信息
     """
 
-    return toolchains_info(f"Checking {lib} in {lib_dir} ... ")
+    basic_info = toolchains_info(f"Checking {lib} in {lib_dir} ... ")
+    skip_info = color.note.wrapper("skip for dry run\n")
+    return basic_info + (skip_info if need_dry_run(dry_run) else "")
 
 
 @support_dry_run(_check_lib_dir_echo, "")
@@ -531,11 +546,11 @@ def check_lib_dir(lib: str, lib_dir: Path, do_assert: bool = True, dry_run: bool
 
     message = toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
     if not do_assert and not lib_dir.exists():
-        print(_color.error.wrapper("no"))
+        print(color.error.wrapper("no"))
         return False
     else:
         assert lib_dir.exists(), message
-    print(_color.success.wrapper("yes"))
+    print(color.success.wrapper("yes"))
     return True
 
 
