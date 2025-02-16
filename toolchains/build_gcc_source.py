@@ -31,15 +31,52 @@ class modifier_list:
     def loongarch64_loongnix_linux_gnu(env: environment) -> None:
         """针对loongarch64-loongnix-linux-gnu平台
         1. 使用loongarch64-loongnix的链接器脚本
-        2. glibc添加--enable-obsolete-rpc选项
+        2. 使用预编译的glibc
         3. gcc添加--disable-libsanitizer选项
 
         Args:
             env (environment): 当前gcc构建平台
         """
 
+        def build_gcc(build_env: environment) -> None:
+            """loongarch64-loongnix-linux-gnu专业编译流程，跳过glibc编译
+
+            Args:
+                self (environment): gcc构建环境
+            """
+
+            env = build_env.env
+            # 编译binutils，如果启用gdb则一并编译
+            env.enter_build_dir("binutils")
+            env.configure(*build_env.basic_option, *build_env.gdb_option)
+            env.make()
+            env.install()
+
+            # 安装Linux头文件
+            env.enter_build_dir("linux")
+            env.make(*build_env.linux_option)
+
+            # 复制glibc文件
+            glibc_dir = env.home / "glibc-loongnix"
+            for item in ("include", "lib"):
+                src_dir = glibc_dir / item
+                dst_dir = env.lib_prefix / item
+                for item in src_dir.iterdir():
+                    common.copy(item, dst_dir / item.name)
+
+            # 编译完整gcc
+            env.enter_build_dir("gcc")
+            env.configure(*build_env.basic_option, *build_env.gcc_option)
+            env.make()
+            env.install()
+
+            # 完成后续工作
+            build_env.after_build_gcc()
+
         env.adjust_glibc_arch = "loongarch64-loongnix"
-        env.libc_option.append("--enable-obsolete-rpc")
+        # 若成功找到glibc-loongnix则直接从预编译包中复制
+        if env.env.lib_dir_list["glibc"].name == "glibc-loongnix":
+            env.full_build_linux = build_gcc
         env.gcc_option.append("--disable-libsanitizer")
 
     @staticmethod

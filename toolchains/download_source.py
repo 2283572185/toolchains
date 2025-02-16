@@ -63,7 +63,7 @@ class extra_lib_version(enum.StrEnum):
             return -1
 
 
-def get_current_glib_version() -> str | None:
+def get_current_glibc_version() -> str | None:
     """获取当前glibc版本
 
     Returns:
@@ -320,7 +320,7 @@ class all_lib_list:
         "loongnix": extra_lib(
             {
                 "linux-loongnix.tar.gz": f"https://mirrors.nju.edu.cn/loongnix/pool/main/l/linux/linux_{extra_lib_version.loongnix_linux}.orig.tar.gz",
-                "glibc-loongnix.tar.gz": f"https://mirrors.nju.edu.cn/loongnix/pool/main/g/glibc/glibc_{extra_lib_version.loongnix_glibc}.orig.tar.gz",
+                "glibc-loongnix.tar.zst": f"https://github.com/24bit-xjkp/toolchains/releases/download/vendor-packages/glibc-loongnix-{extra_lib_version.loongnix_glibc}.tar.zst",
             },
             ["linux-loongnix", "glibc-loongnix"],
             "linux-loongnix",
@@ -344,7 +344,7 @@ class all_lib_list:
         "loongnix": extra_lib_list["loongnix"].create_mirror(
             {
                 "linux-loongnix.tar.gz": f"https://pkg.loongnix.cn/loongnix/pool/main/l/linux/linux_{extra_lib_version.loongnix_linux}.orig.tar.gz",
-                "glibc-loongnix.tar.gz": f"https://pkg.loongnix.cn/loongnix/pool/main/g/glibc/glibc_{extra_lib_version.loongnix_glibc}.orig.tar.gz",
+                "glibc-loongnix.tar.zst": f"https://gitee.com/xjkp-24bit/toolchains/releases/download/vendor-packages/glibc-loongnix-{extra_lib_version.loongnix_glibc}.tar.zst",
             }
         ),
     }
@@ -419,7 +419,7 @@ class configure(common.basic_configure):
         """
 
         super().__init__()
-        self.glibc_version = glibc_version or get_current_glib_version()
+        self.glibc_version = glibc_version or get_current_glibc_version()
         self.clone_type = git_clone_type[clone_type]
         self.shallow_clone_depth = depth
         self.register_encode_name_map("depth", "shallow_clone_depth")
@@ -511,7 +511,7 @@ class after_download_list:
         """
 
         linux_tgz = config.home / "linux-loongnix.tar.gz"
-        glibc_tgz = config.home / "glibc-loongnix.tar.gz"
+        glibc_tzst = config.home / "glibc-loongnix.tar.zst"
         linux_dir = config.home / "linux-loongnix"
         glibc_dir = config.home / "glibc-loongnix"
         # 删除已安装包
@@ -522,9 +522,10 @@ class after_download_list:
         common.run_command(f"tar -xaf {linux_tgz} -C {linux_dir}")
         common.remove(linux_tgz)
         # 解压glibc
-        common.run_command(f"tar -xaf {glibc_tgz} -C {config.home}")
-        common.rename(config.home / "glibc-2.28", glibc_dir)
-        common.remove(glibc_tgz)
+        common.mkdir(glibc_dir)
+        common.run_command(f"tar -xaf {glibc_tzst} -C {glibc_dir}")
+        common.remove(glibc_tzst)
+
         extra_lib_version.loongnix.save_version(linux_dir)
 
     @staticmethod
