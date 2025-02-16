@@ -17,6 +17,9 @@ from typing import Self
 
 import colorama
 
+# 受支持的os列表
+support_os_list = ("linux", "w64", "none")
+
 
 class color(enum.StrEnum):
     """cli使用的颜色
@@ -763,30 +766,36 @@ class triplet_field:
     vendor: str  # 制造商
     abi: str  # abi/libc
     num: int  # 非unknown的字段数
+    triplet: str  # 原平台名称
 
     def __init__(self, triplet: str, normalize: bool = False) -> None:
         """解析平台名称
 
         Args:
             triplet (str): 输入平台名称
+            normalize (bool, optional): 是否将none替换为unknown. 默认不替换.
+
+        Raises:
+            RuntimeError: 输入平台名称无法解析
         """
 
-        field = triplet.split("-")
-        self.arch = field[0]
-        self.num = len(field)
+        self.triplet = triplet
+        fields = triplet.split("-")
+        self.arch = fields[0]
+        self.num = len(fields)
         match (self.num):
             case 2:
                 self.os = "unknown"
                 self.vendor = "unknown"
-                self.abi = field[1]
+                self.abi = fields[1]
             case 3:
-                self.os = field[1]
+                self.os = fields[1]
                 self.vendor = "unknown"
-                self.abi = field[2]
+                self.abi = fields[2]
             case 4:
-                self.vendor = field[1]
-                self.os = field[2]
-                self.abi = field[3]
+                self.vendor = fields[1]
+                self.os = fields[2]
+                self.abi = fields[3]
             case _:
                 raise RuntimeError(f'Illegal triplet "{triplet}"')
 
@@ -796,6 +805,61 @@ class triplet_field:
         if normalize:
             if self.os == "none":
                 self.os = "unknown"
+
+    @classmethod
+    def try_parse(cls, triplet: str) -> Self:
+        """尝试解析平台名称，无法解析部分以""代替，不会产生异常，num为总字段数
+
+        Args:
+            triplet (str): 输入平台名称
+
+        Returns:
+            Self: 平台字段对象
+        """
+
+        result = cls.__new__(cls)
+        result.triplet = triplet
+        fields = triplet.split("-")
+
+        # 根据第1个字段探测arch
+        result.arch = fields[0] if fields else ""
+        result.vendor = ""
+        result.os = ""
+        result.abi = ""
+
+        def detect_vendor_os() -> None:
+            """根据第2个字段探测vendor或os"""
+
+            for os in support_os_list:
+                if os.startswith(fields[1]):
+                    result.os = fields[1]
+                    result.vendor = ""
+                    break
+            else:
+                result.vendor = fields[1]
+                result.os = ""
+
+        result.num = len(fields)
+        match (result.num):
+            case 0 | 1:
+                pass
+            case 2:
+                detect_vendor_os()
+            case 3:
+                detect_vendor_os()
+                # 探测到os，下一个只能是abi
+                if result.os:
+                    result.abi = fields[2]
+                # 探测到vendor，下一个是os
+                else:
+                    result.os = fields[2]
+            case _:
+                result.arch = fields[0]
+                result.vendor = fields[1]
+                result.os = fields[2]
+                result.abi = fields[3]
+
+        return result
 
     @staticmethod
     def check(triplet: str) -> bool:
@@ -889,14 +953,88 @@ class files_completer:
             allowed_suffix = [allowed_suffix]
         self.allowed_suffix = allowed_suffix
 
-    def __call__(self, prefix: str, **_: dict[str, typing.Any]) -> list[str]:
+    def __call__(self, prefix: str, **_: typing.Any) -> list[str]:
         return _path_complete(prefix, True, self.allowed_suffix)
 
 
-def dir_completer(prefix: str, **_: dict[str, typing.Any]) -> list[str]:
+def dir_completer(prefix: str, **_: typing.Any) -> list[str]:
     """支持目录补全"""
 
     return _path_complete(prefix, False, [])
+
+
+class triplet_completer:
+    """支持平台名称补全"""
+
+    origin_triplet_list: list[str]
+    triplet_list: list[triplet_field]
+    arch_list: list[str]
+
+    def __init__(self, triplet_list: list[str]) -> None:
+        self.origin_triplet_list = triplet_list
+        self.triplet_list = [triplet_field(triplet) for triplet in triplet_list]
+        self.arch_list = list({triplet.arch for triplet in self.triplet_list})
+
+    class _filter:
+        arch: str
+        os: str
+        abi: str
+
+        def __init__(self, arch: str, os: str, abi: str) -> None:
+            self.arch = arch
+            self.os = os
+            self.abi = abi
+
+        def __call__(self, triplet: triplet_field) -> bool:
+            def arch_filter() -> bool:
+                if self.os:
+                    return triplet.arch == self.arch
+                else:
+                    return triplet.arch.startswith(self.arch)
+
+            def os_filter() -> bool:
+                if self.os and not self.abi:
+                    return triplet.os.startswith(self.os)
+                elif self.os and self.abi:
+                    return triplet.os == self.os
+                else:
+                    return True
+
+            def abi_filter() -> bool:
+                return not self.abi or triplet.abi.startswith(self.abi)
+
+            return arch_filter() and os_filter() and abi_filter()
+
+    def _get_filter(self, arch: str, os: str = "", abi: str = "") -> "filter[triplet_field]":
+        return filter(self._filter(arch, os, abi), self.triplet_list)
+
+    def _get_triplet_list(self, arch: str, os: str = "", abi: str = "") -> list[str]:
+        return [triplet.triplet for triplet in self._get_filter(arch, os, abi)]
+
+    def __call__(self, prefix: str, **_: typing.Any) -> list[str]:
+        # 解析已输入内容
+        parse_result = triplet_field.try_parse(prefix)
+        match (prefix.count("-")):
+            case 0:
+                return self._get_triplet_list(parse_result.arch) if prefix else self.origin_triplet_list
+            case 1:
+                return self._get_triplet_list(parse_result.arch, parse_result.os)
+            case 2:
+                arch = parse_result.arch
+                os = parse_result.os
+                if abi := parse_result.abi:
+                    return self._get_triplet_list(arch, os, abi)
+                else:
+                    triplet_list = self._get_filter(arch, os)
+                    return ["-".join((arch, parse_result.vendor, triplet.os, triplet.abi)) for triplet in triplet_list]
+            case 3:
+                arch = parse_result.arch
+                os = parse_result.os
+                abi = parse_result.abi
+                triplet_list = [triplet.abi for triplet in self._get_filter(arch, os, abi)]
+                return ["-".join((arch, parse_result.vendor, os, abi)) for abi in triplet_list]
+            case _:
+                return []
 
 
 def resolve_path(path: str | Path, base_path: Path) -> Path:
@@ -1103,6 +1241,16 @@ class basic_configure:
             Self: 构造的对象，如果命令选项中没有对应参数则使用默认值
         """
 
+        default_list: dict[str, typing.Any] = cls._get_default_param_list()
+
+        def set_default(**parma_list: typing.Any) -> None:
+            """设置参数的默认值"""
+
+            for parma, value in parma_list.items():
+                setattr(args, parma, getattr(args, parma, value))
+
+        # 针对未添加通用选项的情况
+        set_default(home=default_list["home"], dry_run=False, quiet=0, import_file=None, export_file=None)
         check_home(args.home)
         command_dry_run.set(args.dry_run)
         if args.quiet >= 1:
@@ -1113,7 +1261,6 @@ class basic_configure:
             status_counter.set_quiet(True)
         args_list = vars(args)
         input_list: dict[str, typing.Any] = {}
-        default_list: dict[str, typing.Any] = cls._get_default_param_list()
         current_cls = cls
         while current_cls != basic_configure:
             for param in itertools.islice(inspect.signature(current_cls.__init__).parameters.keys(), 1, None):

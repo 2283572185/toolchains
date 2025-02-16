@@ -31,10 +31,10 @@ def check_triplet(host: str, target: str) -> None:
             raise RuntimeError(common.toolchains_error(f'{name} "{input_triplet}" is not support.'))
 
 
-def _check_input(args: argparse.Namespace, need_triplet: bool) -> None:
-    assert args.jobs > 0, f"Invalid jobs: {args.jobs}."
-    assert 1 <= args.compress_level <= 22, f"Invalid compress level: {args.compress_level}"
-    if need_triplet:
+def _check_input(args: argparse.Namespace, need_check: bool) -> None:
+    if need_check:
+        assert args.jobs > 0, f"Invalid jobs: {args.jobs}."
+        assert 1 <= args.compress_level <= 22, f"Invalid compress level: {args.compress_level}"
         check_triplet(args.host, args.target)
 
 
@@ -61,12 +61,16 @@ def build_specific_gcc(
 def dump_support_platform() -> None:
     """打印所有受支持的平台"""
 
-    print("Host support:")
+    print(common.color.note.wrapper("Host support:"))
     for host in support_platform_list.host_list:
         print(f"\t{host}")
-    print("Target support:")
+    print(common.color.note.wrapper("Target support:"))
     for target in support_platform_list.target_list:
         print(f"\t{target}")
+
+    print(common.color.note.wrapper("NOTE:"), "You can add a vendor field to triplets above.")
+    # 没有执行任何实际操作，无需打印状态计数
+    common.status_counter.set_quiet(True)
 
 
 __all__ = [
@@ -92,8 +96,10 @@ def main() -> None:
 
     # 添加build相关选项
     configure.add_argument(build_parse)
-    build_parse.add_argument("--host", type=str, help="The host platform of the GCC toolchain.", default=default_config.build)
-    build_parse.add_argument("--target", type=str, help="The target platform of the GCC toolchain.", default=default_config.build)
+    action = build_parse.add_argument("--host", type=str, help="The host platform of the GCC toolchain.", default=default_config.build)
+    setattr(action, "completer", common.triplet_completer(support_platform_list.host_list))
+    action = build_parse.add_argument("--target", type=str, help="The target platform of the GCC toolchain.", default=default_config.build)
+    setattr(action, "completer", common.triplet_completer(support_platform_list.target_list))
     build_parse.add_argument(
         "--gdb", action=argparse.BooleanOptionalAction, help="Whether to enable gdb support in GCC toolchain.", default=default_config.gdb
     )
