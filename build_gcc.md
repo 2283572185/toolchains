@@ -9,13 +9,14 @@
 | GDB         | 17.0.50      |
 | Binutils    | 2.44.50      |
 | Python $^*$ | 3.13.2       |
-| Glibc       | 2.39         |
-| Mingw-w64   | 10.0.0       |
+| Linux       | 6.14-rc2     |
+| Glibc       | 2.40         |
+| Mingw-w64   | 12.0.0       |
 | PExports    | 0.47         |
-| Iconv       | 1.17         |
-| Gmp         | 6.2.1        |
-| Mpfr        | 4.1.0        |
-| Expat       | 2.5.0        |
+| Iconv       | 1.18         |
+| Gmp         | 6.3.0        |
+| Mpfr        | 4.2.1        |
+| Expat       | 2.6.4        |
 
 *: 在为Windows平台编译带有Python支持的GDB时需要下载Python包，Linux平台可以使用系统自带包
 
