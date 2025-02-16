@@ -557,7 +557,7 @@ class build_environment:
         # 由相关函数自动推动架构名
         self.adjust_glibc_arch = ""
 
-    def _after_build_gcc(self, skip_gdbserver: bool = False) -> None:
+    def after_build_gcc(self, skip_gdbserver: bool = False) -> None:
         """在编译完gcc后完成收尾工作
 
         Args:
@@ -593,83 +593,95 @@ class build_environment:
         # 打包工具链
         self.env.package(self.need_gdb, self.need_gdb and self.host_os == "w64")
 
-    def _native_build_linux(self) -> None:
-        """编译linux本地工具链"""
+    @staticmethod
+    def native_build_linux(build_env: "build_environment") -> None:
+        """编译linux本地工具链
 
+        Args:
+            build_env (build_environment): gcc构建环境
+        """
+
+        env = build_env.env
         # 编译gcc
-        self.env.enter_build_dir("gcc")
-        self.env.configure(*self.basic_option, *self.gcc_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("gcc")
+        env.configure(*build_env.basic_option, *build_env.gcc_option)
+        env.make()
+        env.install()
 
         # 安装Linux头文件
-        self.env.enter_build_dir("linux")
-        self.env.make(*self.linux_option)
+        env.enter_build_dir("linux")
+        env.make(*build_env.linux_option)
 
         # 编译安装glibc
-        self.env.enter_build_dir("glibc")
-        self.env.configure(*self.libc_option)
-        self.env.make()
-        self.env.install("install")
-        self.env.adjust_glibc(self.adjust_glibc_arch)
+        env.enter_build_dir("glibc")
+        env.configure(*build_env.libc_option)
+        env.make()
+        env.install("install")
+        env.adjust_glibc(build_env.adjust_glibc_arch)
 
         # 编译binutils，如果启用gdb和gdbserver则一并编译
-        self.env.enter_build_dir("binutils")
-        self.env.configure(*self.basic_option, *self.gdb_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("binutils")
+        env.configure(*build_env.basic_option, *build_env.gdb_option)
+        env.make()
+        env.install()
         # 完成后续工作
-        self._after_build_gcc(True)
+        build_env.after_build_gcc(True)
 
-    def _full_build_linux(self) -> None:
-        """完整自举target为linux的gcc"""
+    @staticmethod
+    def full_build_linux(build_env: "build_environment") -> None:
+        """完整自举target为linux的gcc
 
+        Args:
+            build_env (build_environment): gcc构建环境
+        """
+
+        env = build_env.env
         # 编译binutils，如果启用gdb则一并编译
-        self.env.enter_build_dir("binutils")
-        self.env.configure(*self.basic_option, *self.gdb_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("binutils")
+        env.configure(*build_env.basic_option, *build_env.gdb_option)
+        env.make()
+        env.install()
 
         # 编译gcc
-        self.env.enter_build_dir("gcc")
-        self.env.configure(*self.basic_option, *self.gcc_option, "--disable-shared")
-        self.env.make("all-gcc")
-        self.env.install("install-strip-gcc")
+        env.enter_build_dir("gcc")
+        env.configure(*build_env.basic_option, *build_env.gcc_option, "--disable-shared")
+        env.make("all-gcc")
+        env.install("install-strip-gcc")
 
         # 安装Linux头文件
-        self.env.enter_build_dir("linux")
-        self.env.make(*self.linux_option)
+        env.enter_build_dir("linux")
+        env.make(*build_env.linux_option)
 
         # 安装glibc头文件
-        self.env.enter_build_dir("glibc")
-        self.env.configure(*self.libc_option, "libc_cv_forced_unwind=yes")
-        self.env.make("install-headers")
+        env.enter_build_dir("glibc")
+        env.configure(*build_env.libc_option, "libc_cv_forced_unwind=yes")
+        env.make("install-headers")
         # 为了跨平台，不能使用mknod
-        with open(self.glibc_phony_stubs_path, "w"):
+        with open(build_env.glibc_phony_stubs_path, "w"):
             pass
 
         # 编译安装libgcc
-        self.env.enter_build_dir("gcc", False)
-        self.env.make("all-target-libgcc")
-        self.env.install("install-target-libgcc")
+        env.enter_build_dir("gcc", False)
+        env.make("all-target-libgcc")
+        env.install("install-target-libgcc")
 
         # 编译安装glibc
-        self.env.enter_build_dir("glibc")
-        self.env.configure(*self.libc_option)
-        self.env.make()
-        self.env.install("install")
-        self.env.adjust_glibc(self.adjust_glibc_arch)
+        env.enter_build_dir("glibc")
+        env.configure(*build_env.libc_option)
+        env.make()
+        env.install("install")
+        env.adjust_glibc(build_env.adjust_glibc_arch)
 
         # 编译完整gcc
-        self.env.enter_build_dir("gcc")
-        self.env.configure(*self.basic_option, *self.gcc_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("gcc")
+        env.configure(*build_env.basic_option, *build_env.gcc_option)
+        env.make()
+        env.install()
 
         # 完成后续工作
-        self._after_build_gcc()
+        build_env.after_build_gcc()
 
-    def _build_pexports(self) -> None:
+    def build_pexports(self) -> None:
         # 编译pexports
         self.env.enter_build_dir("pexports")
         self.env.configure(
@@ -684,100 +696,118 @@ class build_environment:
             pexports = "pexports.exe" if self.host_os == "w64" else "pexports"
             common.rename(self.env.bin_dir / pexports, self.env.bin_dir / f"{self.env.target}-{pexports}")
 
-    def _full_build_mingw(self) -> None:
-        """完整自举target为mingw的gcc"""
+    @staticmethod
+    def full_build_mingw(build_env: "build_environment") -> None:
+        """完整自举target为mingw的gcc
 
+        Args:
+            build_env (build_environment): gcc构建环境
+        """
+
+        env = build_env.env
         # 编译binutils，如果启用gdb则一并编译
-        self.env.enter_build_dir("binutils")
-        self.env.configure(*self.basic_option, *self.gdb_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("binutils")
+        env.configure(*build_env.basic_option, *build_env.gdb_option)
+        env.make()
+        env.install()
 
         # 编译安装mingw-w64头文件
-        self.env.enter_build_dir("mingw")
-        self.env.configure(*self.libc_option, "--without-crt")
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("mingw")
+        env.configure(*build_env.libc_option, "--without-crt")
+        env.make()
+        env.install()
 
         # 编译gcc和libgcc
-        self.env.enter_build_dir("gcc")
-        self.env.configure(*self.basic_option, *self.gcc_option, "--disable-shared")
-        self.env.make("all-gcc all-target-libgcc")
-        self.env.install("install-strip-gcc install-target-libgcc")
+        env.enter_build_dir("gcc")
+        env.configure(*build_env.basic_option, *build_env.gcc_option, "--disable-shared")
+        env.make("all-gcc all-target-libgcc")
+        env.install("install-strip-gcc install-target-libgcc")
 
         # 编译完整mingw-w64
-        self.env.enter_build_dir("mingw")
-        self.env.configure(*self.libc_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("mingw")
+        env.configure(*build_env.libc_option)
+        env.make()
+        env.install()
 
         # 编译完整的gcc
-        self.env.enter_build_dir("gcc")
-        self.env.configure(*self.basic_option, *self.gcc_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("gcc")
+        env.configure(*build_env.basic_option, *build_env.gcc_option)
+        env.make()
+        env.install()
 
-        self._build_pexports()
+        build_env.build_pexports()
         # 完成后续工作
-        self._after_build_gcc()
+        build_env.after_build_gcc()
 
-    def _full_build_freestanding(self) -> None:
-        """完整自举target为独立平台的gcc"""
+    @staticmethod
+    def full_build_freestanding(build_env: "build_environment") -> None:
+        """完整自举target为独立平台的gcc
 
+        Args:
+            build_env (build_environment): gcc构建环境
+        """
+
+        env = build_env.env
         # 编译binutils，如果启用gdb则一并编译
-        self.env.enter_build_dir("binutils")
-        self.env.configure(*self.basic_option, *self.gdb_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("binutils")
+        env.configure(*build_env.basic_option, *build_env.gdb_option)
+        env.make()
+        env.install()
 
-        if self.need_newlib:
+        if build_env.need_newlib:
             # 编译安装gcc
-            self.env.enter_build_dir("gcc")
-            self.env.configure(*self.basic_option, *self.gcc_option)
-            self.env.make("all-gcc")
-            self.env.install("install-strip-gcc")
+            env.enter_build_dir("gcc")
+            env.configure(*build_env.basic_option, *build_env.gcc_option)
+            env.make("all-gcc")
+            env.install("install-strip-gcc")
 
             # 编译安装newlib
-            self.env.enter_build_dir("newlib")
-            self.env.configure(*self.libc_option)
-            self.env.make()
-            self.env.install()
+            env.enter_build_dir("newlib")
+            env.configure(*build_env.libc_option)
+            env.make()
+            env.install()
 
             # 编译安装完整gcc
-            self.env.enter_build_dir("gcc", False)
-            self.env.make()
-            self.env.install()
+            env.enter_build_dir("gcc", False)
+            env.make()
+            env.install()
         else:
             # 编译安装完整gcc
-            self.env.enter_build_dir("gcc")
-            self.env.configure(*self.basic_option, *self.gcc_option)
-            self.env.make()
-            self.env.install("install-strip")
+            env.enter_build_dir("gcc")
+            env.configure(*build_env.basic_option, *build_env.gcc_option)
+            env.make()
+            env.install("install-strip")
 
         # 完成后续工作
-        self._after_build_gcc()
+        build_env.after_build_gcc()
 
-    def _partial_build(self) -> None:
-        """编译gcc而无需自举"""
+    @staticmethod
+    def partial_build(build_env: "build_environment") -> None:
+        """编译gcc而无需自举
 
+        Args:
+            build_env (build_environment): gcc构建环境
+        """
+
+        env = build_env.env
         # 编译binutils，如果启用gdb则一并编译
-        self.env.enter_build_dir("binutils")
-        self.env.configure(*self.basic_option, *self.gdb_option)
-        self.env.make()
-        self.env.install()
+        env.enter_build_dir("binutils")
+        env.configure(*build_env.basic_option, *build_env.gdb_option)
+        env.make()
+        env.install()
 
         # 编译安装gcc
-        self.env.enter_build_dir("gcc")
-        self.env.configure(*self.basic_option, *self.gcc_option)
-        self.env.make("all-gcc")
-        self.env.install("install-strip-gcc")
+        env.enter_build_dir("gcc")
+        env.configure(*build_env.basic_option, *build_env.gcc_option)
+        env.make("all-gcc")
+        env.install("install-strip-gcc")
 
         # 有需要则编译安装pexports
-        if self.target_os == "w64":
-            self._build_pexports()
+        if build_env.target_os == "w64":
+            build_env.build_pexports()
 
         # 完成后续工作
-        self._after_build_gcc()
+        build_env.after_build_gcc()
 
     def build(self) -> None:
         """构建gcc工具链"""
@@ -786,18 +816,18 @@ class build_environment:
         if self.need_gdb and self.host_os == "w64":
             build_mingw_gdb_requirements(self.env)
         if self.env.toolchain_type == toolchain_type.native:
-            self._native_build_linux()
+            self.native_build_linux(self)
         elif self.full_build:
             assert self.target_os in ("linux", "w64", "unknown")
             match (self.target_os):
                 case "linux":
-                    self._full_build_linux()
+                    self.full_build_linux(self)
                 case "w64":
-                    self._full_build_mingw()
+                    self.full_build_mingw(self)
                 case "unknown":
-                    self._full_build_freestanding()
+                    self.full_build_freestanding(self)
         else:
-            self._partial_build()
+            self.partial_build(self)
 
 
 assert __name__ != "__main__", "Import this file instead of running it directly."
