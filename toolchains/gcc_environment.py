@@ -374,6 +374,13 @@ def build_mingw_gdb_requirements(env: environment) -> None:
 
     lib_prefix_list = get_mingw_lib_prefix_list(env)
     for lib, prefix in lib_prefix_list.items():
+        host_file = prefix / ".host"
+        try:
+            host = host_file.read_text()
+        except:
+            host = ""
+        if host == env.host:
+            continue  # 已经存在则跳过构建
         env.enter_build_dir(lib)
         env.configure(
             f"--host={env.host} --disable-shared --enable-static",
@@ -384,6 +391,7 @@ def build_mingw_gdb_requirements(env: environment) -> None:
         )
         env.make()
         env.install()
+        host_file.write_text(env.host)
 
 
 def get_mingw_gdb_lib_options(env: environment) -> list[str]:
