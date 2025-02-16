@@ -1,13 +1,15 @@
----@type string
+---@type string | nil
 local rcfiles = os.getenv("XMAKE_RCFILES")
 ---@type string | nil
 local script_dir = nil
 ---探测toolchain.lua并根据该文件的绝对路径提取脚本目录
 ---@see https://github.com/xmake-io/xmake/issues/6048
-for _, rcfile in ipairs(path.splitenv(rcfiles)) do
-    if rcfile:endswith("toolchain.lua") then
-        script_dir = path.directory(rcfile)
-        break
+if rcfiles then
+    for _, rcfile in ipairs(path.splitenv(rcfiles)) do
+        if rcfile:endswith("toolchain.lua") then
+            script_dir = path.directory(rcfile)
+            break
+        end
     end
 end
 
@@ -54,7 +56,7 @@ function register_clang_toolchain(target, modifier)
         end)
 
         on_load(function(toolchain)
-            import("utility.utility", {rootdir = "D:/toolchains/xmake"})
+            import("utility.utility")
             if toolchain:is_plat("windows") then
                 toolchain:add("runtimes", "MT", "MTd", "MD", "MDd")
             end
@@ -99,7 +101,7 @@ function register_gcc_toolchain(target, modifier)
 
         on_check(function(_)
             if target == "target" then
-                target, modifier = import("utility.utility", {rootdir = "D:/toolchains/xmake"}).get_target_modifier()
+                target, modifier = import("utility.utility").get_target_modifier()
             end
             prefix = target == "native" and "" or target .. "-"
             return import("lib.detect.find_program")(prefix .. "gcc")
@@ -117,7 +119,7 @@ function register_gcc_toolchain(target, modifier)
             toolchain:set("toolset", "ranlib", prefix .. "ranlib")
             toolchain:set("toolset", "as", prefix .. "gcc")
 
-            import("utility.utility", {rootdir = "D:/toolchains/xmake"})
+            import("utility.utility")
             toolchain:add("cxflags", utility.get_march_option(target, "gcc"))
             local sysroot_option = utility.get_sysroot_option()
             for flag, option in pairs(sysroot_option) do
