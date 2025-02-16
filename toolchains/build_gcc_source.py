@@ -121,6 +121,7 @@ class support_platform_list:
         "arm-linux-gnueabihf",
         "loongarch64-linux-gnu",
         "riscv64-linux-gnu",
+        "riscv64-none-elf",
         "x86_64-w64-mingw32",
         "i686-w64-mingw32",
         "arm-none-eabi",
