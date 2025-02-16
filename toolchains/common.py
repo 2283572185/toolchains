@@ -789,8 +789,12 @@ class triplet_field:
                 self.vendor = "unknown"
                 self.abi = fields[1]
             case 3:
-                self.os = fields[1]
-                self.vendor = "unknown"
+                if fields[1] in support_os_list:
+                    self.os = fields[1]
+                    self.vendor = "unknown"
+                else:
+                    self.os = "unknown"
+                    self.vendor = fields[1]
                 self.abi = fields[2]
             case 4:
                 self.vendor = fields[1]

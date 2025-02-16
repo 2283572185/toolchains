@@ -34,6 +34,12 @@ def test_3_field() -> None:
     assert fields.os == "none"
     assert fields.abi == "eabi"
 
+    fields = triplet_field("x86_64-nonewlib-elf")
+    assert fields.arch == "x86_64"
+    assert fields.vendor == "nonewlib"
+    assert fields.os == "unknown"
+    assert fields.abi == "elf"
+
 
 def test_4_field() -> None:
     fields = triplet_field("x86_64-pc-linux-gnu")
