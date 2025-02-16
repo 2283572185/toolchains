@@ -96,7 +96,7 @@ class status_counter:
         cls.__counter.success += 1
 
     @classmethod
-    def __getitem__(cls, name: str) -> int:
+    def get_counter(cls, name: str) -> int:
         assert name in ("error", "warning", "note", "info", "success")
         return getattr(cls.__counter, name)
 
