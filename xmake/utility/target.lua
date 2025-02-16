@@ -18,13 +18,20 @@ end
 ---@return nil
 function freestanding_modifier(toolchain)
     -- freestanding需要禁用标准库
-    toolchain:add("cxflags", "-ffreestanding", "-nostdlib")
-    toolchain:add("ldflags", "-nostdlib")
+    toolchain:add("cxflags", "-ffreestanding")
+    toolchain:add("ldflags", "-nodefaultlibs", "-lstdc++", "-lgcc")
 end
 
 ---只有clang支持的目标
 ---@type modifier_table_t
 clang_only_target_list = { ["x86_64-windows-msvc"] = noop_modifier }
+---只有gcc支持的目标
+---@type modifier_table_t
+gcc_only_target_list = {
+    ["arm-none-eabi"] = noop_modifier,
+    ["arm-nonewlib-none-eabi"] = freestanding_modifier,
+    ["riscv-none-elf"] = noop_modifier,
+}
 ---gcc和clang均支持的目标
 ---@type modifier_table_t
 general_target_list = {
@@ -38,19 +45,24 @@ general_target_list = {
     ["aarch64-linux-gnu"] = noop_modifier,
     ["arm-linux-gnueabi"] = noop_modifier,
     ["arm-linux-gnueabihf"] = noop_modifier,
-    ["arm-none-eabi"] = freestanding_modifier,
     ["x86_64-elf"] = freestanding_modifier,
     ["native"] = noop_modifier,
     ["target"] = noop_modifier
 }
 ---所有受支持的目标
 ---@type modifier_table_t
-target_list = table.join(general_target_list, clang_only_target_list)
+target_list = table.join(general_target_list, clang_only_target_list, gcc_only_target_list)
 
 ---获取只有clang支持的目标列表
 ---@return modifier_table_t
 function get_clang_only_target_list()
     return clang_only_target_list
+end
+
+---获取只有gcc支持的目标列表
+---@return modifier_table_t
+function get_gcc_only_target_list()
+    return gcc_only_target_list
 end
 
 ---获取gcc和clang均支持的目标列表
