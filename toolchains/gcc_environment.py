@@ -330,8 +330,8 @@ class environment(common.basic_environment):
         with include_path.open("a") as file:
             file.writelines(("#undef MB_LEN_MAX\n", "#define MB_LEN_MAX 16\n"))
 
-    def copy_from_cross_toolchain(self, need_gdbserver: bool) -> bool:
-        """从交叉工具链中复制libc、libstdc++、libgcc、linux头文件、gdbserver等到本工具链中
+    def copy_from_other_toolchain(self, need_gdbserver: bool) -> bool:
+        """从交叉工具链或本地工具链中复制libc、libstdc++、libgcc、linux头文件、gdbserver等到本工具链中
 
         Args:
             need_gdbserver (bool): 是否需要复制gdbserver
@@ -340,18 +340,18 @@ class environment(common.basic_environment):
             bool: gdbserver是否成功复制
         """
 
-        # 从交叉工具链中复制libc、libstdc++、linux头文件等到本工具链中
-        cross_toolchain = get_specific_environment(self, target=self.target)
-        for dir in filter(lambda x: x.name != "bin", cross_toolchain.lib_prefix.iterdir()):
+        # 复制libc、libstdc++、linux头文件等到本工具链中
+        toolchain = get_specific_environment(self, target=self.target)
+        for dir in filter(lambda x: x.name != "bin", toolchain.lib_prefix.iterdir()):
             common.copy(dir, self.lib_prefix / dir.name)
 
-        # 从交叉工具链中复制libgcc到本工具链中
-        common.copy(cross_toolchain.prefix / "lib" / "gcc", self.prefix / "lib" / "gcc")
+        # 复制libgcc到本工具链中
+        common.copy(toolchain.prefix / "lib" / "gcc", self.prefix / "lib" / "gcc")
 
         # 复制gdbserver
         if need_gdbserver:
             gdbserver = "gdbserver" if self.target_field.os == "linux" else "gdbserver.exe"
-            return bool(common.copy_if_exist(cross_toolchain.bin_dir / gdbserver, self.bin_dir / gdbserver))
+            return bool(common.copy_if_exist(toolchain.bin_dir / gdbserver, self.bin_dir / gdbserver))
         else:
             return False
 
@@ -551,8 +551,8 @@ class build_environment:
         if self.target_os == "w64":
             self.gdbserver_option.append(w64_gdbsupport_option)
 
-        # Linux到其他平台交叉和Windows到Linux交叉需要完整编译
-        self.full_build = self.host_os == "linux" or self.target_os == "linux" and self.target_arch in ("i686", "x86_64")
+        # 本地工具链和交叉工具链需要完整编译
+        self.full_build = self.env.toolchain_type in (toolchain_type.native, toolchain_type.cross)
         # 编译不完整libgcc时所需的stubs.h所在路径
         self.glibc_phony_stubs_path = self.env.lib_prefix / "include" / "gnu" / "stubs.h"
         # 由相关函数自动推动架构名
@@ -568,7 +568,7 @@ class build_environment:
         self.need_gdbserver = self.need_gdbserver and not skip_gdbserver
         # 从完整工具链复制文件
         if not self.full_build:
-            copy_success = self.env.copy_from_cross_toolchain(self.need_gdbserver)
+            copy_success = self.env.copy_from_other_toolchain(self.need_gdbserver)
             self.need_gdbserver = self.need_gdbserver and not copy_success
         if self.need_gdb and self.env.freestanding and not self.need_newlib:
             copy_pretty_printer(self.env)
