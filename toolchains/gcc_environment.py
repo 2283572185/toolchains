@@ -76,8 +76,7 @@ class environment(common.basic_environment):
     toolchain_type: "toolchain_type"  # 工具链类别
     cross_compiler: bool  # 是否是交叉编译器
     prefix: Path  # 工具链安装位置
-    lib_prefix: Path  # 安装后库目录的前缀
-    symlink_list: list[str]  # 构建过程中创建的软链接表
+    lib_prefix: Path  # 安装后库目录的前缀]
     share_dir: Path  # 安装后share目录
     gdbinit_path: Path  # 安装后.gdbinit文件所在路径
     lib_dir_list: dict[str, Path]  # 所有库所在目录
@@ -121,7 +120,6 @@ class environment(common.basic_environment):
 
         self.prefix = self.prefix_dir / self.name
         self.lib_prefix = self.prefix / self.target if self.toolchain_type != toolchain_type.canadian else self.prefix
-        self.symlink_list = []
         self.share_dir = self.prefix / "share"
         self.gdbinit_path = self.share_dir / ".gdbinit"
         self.host_32_bit = self.host.startswith(arch_32_bit_list)
