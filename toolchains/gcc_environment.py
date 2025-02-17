@@ -316,9 +316,9 @@ class environment(common.basic_environment):
         self.remove_unused_glibc_file()
         self.strip_glibc_file()
         self.change_glibc_ldscript(arch)
-        dst_path = self.lib_prefix / "lib" / "libmvec_nonshared.a"
-        if not dst_path.exists():
-            common.symlink(dst_path, Path("libmvec.a"))
+        symlink_path = self.lib_prefix / "lib" / "libmvec_nonshared.a"
+        if not symlink_path.exists():
+            common.symlink_if_exist(Path("libmvec.a"), symlink_path)
 
     def solve_libgcc_limits(self) -> None:
         """解决libgcc的limits.h中提供错误MB_LEN_MAX的问题"""

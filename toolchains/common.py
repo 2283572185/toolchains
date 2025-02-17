@@ -575,32 +575,49 @@ def rename(src: Path, dst: Path, dry_run: bool | None = None) -> None:
     src.rename(dst)
 
 
-def _symlink_echo(src: Path, dst: Path) -> str:
+def _symlink_echo(target: Path, symlink_path: Path) -> str:
     """在创建软链接时回显信息
 
     Args:
-        src (Path): 源路径
-        dst (Path): 目标路径
+        target (Path): 软链接的目标路径
+        symlink_path (Path): 软链接所在路径
 
     Returns:
         str: 回显信息
     """
 
-    return toolchains_info(f"Symlink {dst} -> {src}.")
+    return toolchains_info(f"Symlink {symlink_path} -> {target}.")
 
 
 @support_dry_run(_symlink_echo)
-def symlink(src: Path, dst: Path, dry_run: bool | None = None) -> None:
+def symlink(target: Path, symlink_path: Path, overwrite: bool = True, dry_run: bool | None = None) -> None:
     """创建软链接
 
     Args:
-        src (Path): 源路径
-        dst (Path): 目标路径
+        target (Path): 软链接的目标路径
+        symlink_path (Path): 软链接所在路径
+        overwrite (bool, optional): 是否覆盖现有文件
         dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
     """
 
-    remove_if_exists(dst)
-    dst.symlink_to(src, src.is_dir())
+    if not overwrite and symlink_path.exists():
+        return
+    remove_if_exists(symlink_path)
+    symlink_path.symlink_to(target, target.is_dir())
+
+
+def symlink_if_exist(target: Path, symlink_path: Path, overwrite: bool = True, dry_run: bool | None = None) -> None:
+    """如果目标存在则创建软链接
+
+    Args:
+        target (Path): 软链接的目标路径
+        symlink_path (Path): 软链接所在路径
+        overwrite (bool, optional): 是否覆盖现有文件
+        dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
+    """
+
+    if target.exists():
+        symlink(target, symlink_path, overwrite, dry_run)
 
 
 def add_environ(key: str, value: str | Path) -> None:
