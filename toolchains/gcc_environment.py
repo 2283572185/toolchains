@@ -527,6 +527,7 @@ class build_environment:
                 f"--with-system-gdbinit={self.env.gdbinit_path}",
                 gdbserver_option,
                 "--enable-gdb",
+                "--disable-unit-tests",
             ]
             if gdb
             else [gdbserver_option, "--disable-gdb"]
