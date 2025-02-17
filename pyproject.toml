@@ -26,7 +26,7 @@ toolchains-gcc = "toolchains.build_gcc:main"
 [tool.poetry]
 package-mode = true
 packages = [{ include = "toolchains" }]
-include = ["readme/*.md", "script/*", "xmake/*", "CONTRIBUTORS.md"]
+include = ["script/*", "xmake/*", "CONTRIBUTORS.md"]
 
 [tool.black]
 line-length = 140
@@ -52,7 +52,7 @@ line_length = 140
 [tool.mypy]
 strict = true
 pretty = true
-files = ["script/*.py", "script/.gdbinit", "toolchains/*.py"]
+files = ["script/*.py", "toolchains/*.py"]
 
 [tool.pytest.ini_options]
 addopts = "-v --maxfail=3"
