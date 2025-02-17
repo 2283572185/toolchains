@@ -1,2 +1,2 @@
 OUTPUT_FORMAT(elf64-x86-64)
-GROUP (libm-2.30.a libmvec.a)
+GROUP (libm-2.40.a libmvec.a)

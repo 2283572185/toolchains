@@ -1,2 +1,2 @@
 OUTPUT_FORMAT(elf64-littleaarch64)
-GROUP (libm-2.39.a libmvec.a)
+GROUP (libm-2.40.a libmvec.a)
