@@ -98,7 +98,7 @@ class status_counter:
     @classmethod
     def get_counter(cls, name: str) -> int:
         assert name in ("error", "warning", "note", "info", "success")
-        return getattr(cls.__counter, name)
+        return typing.cast(int, getattr(cls.__counter, name))
 
     @classmethod
     def get_quiet(cls) -> bool:
@@ -1035,8 +1035,8 @@ class triplet_completer:
                 arch = parse_result.arch
                 os = parse_result.os
                 abi = parse_result.abi
-                triplet_list = [triplet.abi for triplet in self._get_filter(arch, os, abi)]
-                return ["-".join((arch, parse_result.vendor, os, abi)) for abi in triplet_list]
+                abi_list = [triplet.abi for triplet in self._get_filter(arch, os, abi)]
+                return ["-".join((arch, parse_result.vendor, os, abi)) for abi in abi_list]
             case _:
                 return []
 

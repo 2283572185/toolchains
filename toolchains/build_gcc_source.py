@@ -58,9 +58,9 @@ class modifier_list:
 
             # 复制glibc文件
             glibc_dir = env.home / "glibc-loongnix"
-            for item in ("include", "lib"):
-                src_dir = glibc_dir / item
-                dst_dir = env.lib_prefix / item
+            for dir in ("include", "lib"):
+                src_dir = glibc_dir / dir
+                dst_dir = env.lib_prefix / dir
                 for item in src_dir.iterdir():
                     common.copy(item, dst_dir / item.name)
 
@@ -76,7 +76,7 @@ class modifier_list:
         env.adjust_glibc_arch = "loongarch64-loongnix"
         # 若成功找到glibc-loongnix则直接从预编译包中复制
         if env.env.lib_dir_list["glibc"].name == "glibc-loongnix":
-            env.full_build_linux = build_gcc
+            env.full_build_linux = build_gcc  # type: ignore
         env.gcc_option.append("--disable-libsanitizer")
 
     @staticmethod
