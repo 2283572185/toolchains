@@ -1485,7 +1485,7 @@ def dynamic_import_function(function_name: str, module: types.ModuleType) -> Cal
     """
 
     try:
-        return getattr(module, function_name)
+        return typing.cast(Callable[..., typing.Any], getattr(module, function_name))
     except:
         raise RuntimeError(f'Cannot import function "{function_name}" from "{module.__name__}".')
 

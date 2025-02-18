@@ -16,6 +16,7 @@ def find_libm(lib_dir: Path) -> str | None:
     for item in lib_dir.iterdir():
         if (name := item.name).startswith("libm-"):
             return name
+    return None
 
 
 def create_ldscript_echo(ldscript_path: Path) -> str:
