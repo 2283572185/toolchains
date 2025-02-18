@@ -14,6 +14,7 @@ def get_cmake_option(**kwargs: dict[str, str]) -> list[str]:
     Returns:
         list[str]: cmake选项列表
     """
+
     option_list: list[str] = []
     for key, value in kwargs.items():
         option_list.append(f"-D{key}={value}")
@@ -29,6 +30,7 @@ def gnu_to_llvm(target: str) -> str:
     Returns:
         str: llvm风格triplet
     """
+
     if target.count("-") == 2:
         index = target.find("-")
         result = target[:index]
@@ -184,6 +186,7 @@ class environment(common.basic_environment):
 
     def next_stage(self) -> None:
         """进入下一阶段"""
+
         self.stage += 1
         self._set_prefix()
 
@@ -196,6 +199,7 @@ class environment(common.basic_environment):
         Returns:
             list[str]: 编译选项
         """
+
         assert target in self.system_list
         gcc = f"--gcc-toolchain={self.sysroot_dir}"
         command_list: list[str] = []
@@ -226,6 +230,7 @@ class environment(common.basic_environment):
             command_list: 附加编译选项
             cmake_option_list: 附加cmake配置选项
         """
+
         common.remove_if_exists(self.build_dir[project])
         assert project in (*subproject_list, *lib_list)
         command = f"cmake -G Ninja --install-prefix {self.prefix[project]} -B {self.build_dir[project]} -S {self.source_dir[project]} "
@@ -238,6 +243,7 @@ class environment(common.basic_environment):
         Args:
             project (str): 目标项目
         """
+
         assert project in (*subproject_list, *lib_list)
         common.run_command(f"ninja -C {self.build_dir[project]} -j{self.jobs}")
 
@@ -247,6 +253,7 @@ class environment(common.basic_environment):
         Args:
             project (str): 目标项目
         """
+
         assert project in (*subproject_list, *lib_list)
         common.run_command(f"ninja -C {self.build_dir[project]} install/strip -j{self.jobs}")
 
@@ -256,6 +263,7 @@ class environment(common.basic_environment):
         Args:
             project (str): 目标项目
         """
+
         assert project in subproject_list
         dir = self.build_dir[project]
         common.remove_if_exists(dir)
@@ -269,6 +277,7 @@ class environment(common.basic_environment):
         Args:
             target (str): 目标平台
         """
+
         prefix = self.prefix["runtimes"]
         for src_dir in prefix.iterdir():
             match src_dir.name:
@@ -303,6 +312,7 @@ class environment(common.basic_environment):
 
     def copy_llvm_libs(self) -> None:
         """复制工具链所需库"""
+
         src_prefix = self.sysroot_dir / self.host / "lib"
         dst_prefix = self.prefix["llvm"] / ("bin" if self.system_list[self.host] == "Windows" else "lib")
         native_dir = self.home / f"{self.build}-clang{self.major_version}"
@@ -332,6 +342,7 @@ class environment(common.basic_environment):
 
     def change_name(self) -> None:
         """修改多阶段自举时的安装目录名"""
+
         # clang->clang-old
         # clang-new->clang
         if not (old_path := self.home / f"{self.name}-old").exists() and self.bootstrap:
@@ -341,6 +352,7 @@ class environment(common.basic_environment):
 
     def package(self) -> None:
         """打包工具链"""
+
         self.compress()
         # 编译本地工具链时才需要打包sysroot
         if self.build == self.host:

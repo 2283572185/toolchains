@@ -1,8 +1,8 @@
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
 from toolchains.common import *
-import sys
 
 
 def test_dynamic_import_function() -> None:
@@ -12,7 +12,7 @@ def test_dynamic_import_function() -> None:
     module_path = root_dir / "dynamic_import_test" / "dynamic-import-test.py"
     sys_path = sys.path.copy()
     with dynamic_import_module(module_path) as module:
-        foo :Callable[[int], int] = dynamic_import_function("foo", module)
+        foo: Callable[[int], int] = dynamic_import_function("foo", module)
         i = 1
         assert foo(i) == i
         bar: Callable[[str], str] = dynamic_import_function("bar", module)
