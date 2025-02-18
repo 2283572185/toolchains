@@ -3,6 +3,7 @@
 import argparse
 import enum
 import functools
+import importlib.util
 import inspect
 import itertools
 import json
@@ -1442,6 +1443,34 @@ class basic_build_configure(basic_configure):
         assert self.build and triplet_field.check(self.build), f"Invalid build platform: {self.build}."
         assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
         assert 1 <= self.compress_level <= 22, f"Invalid compress level: {self.compress_level}"
+
+
+def dynamic_import_function(function_name: str, module_path: Path) -> Callable[..., typing.Any]:
+    """从文件中导入函数
+
+    Args:
+        function_name (str): 函数名称
+        module_path (Path): 文件路径
+
+    Raises:
+        RuntimeError: 导入失败抛出异常
+
+    Returns:
+        Callable[..., typing.Any]: 导入的函数
+    """
+
+    module_name = module_path.stem.replace("-", "_")
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    assert spec, f'Cannot load module "{module_path}".'
+    module = importlib.util.module_from_spec(spec)
+    loader = spec.loader
+    assert loader, f'Cannot load module "{module_path}".'
+    loader.exec_module(module)
+
+    try:
+        return getattr(module, function_name)
+    except:
+        raise RuntimeError(f'Cannot import function "{function_name}" from "{module_name}".')
 
 
 assert __name__ != "__main__", "Import this file instead of running it directly."
