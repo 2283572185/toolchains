@@ -305,7 +305,12 @@ class environment(common.basic_environment):
         arch = arch or self.target_field.arch
         dst_dir = self.lib_prefix / "lib"
         for file in filter(lambda file: file.name.startswith(f"{arch}-lib"), self.script_dir.iterdir()):
-            common.copy(file, dst_dir / file.name[len(f"{arch}-") :])
+            if file.suffix == ".py":
+                with common.dynamic_import_module(file) as module:
+                    generate_ldscript: Callable[[Path], None] = common.dynamic_import_function("main", module)
+                    generate_ldscript(dst_dir)
+            else:
+                common.copy(file, dst_dir / file.name[len(f"{arch}-") :])
 
     def adjust_glibc(self, arch: str | None = None) -> None:
         """调整glibc
