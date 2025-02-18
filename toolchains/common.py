@@ -10,6 +10,8 @@ import json
 import os
 import shutil
 import subprocess
+import sys
+import types
 import typing
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -1445,18 +1447,12 @@ class basic_build_configure(basic_configure):
         assert 1 <= self.compress_level <= 22, f"Invalid compress level: {self.compress_level}"
 
 
-def dynamic_import_function(function_name: str, module_path: Path) -> Callable[..., typing.Any]:
-    """从文件中导入函数
+@contextmanager
+def dynamic_import_module(module_path: Path) -> Generator[types.ModuleType, None, None]:
+    """动态导入模块
 
     Args:
-        function_name (str): 函数名称
-        module_path (Path): 文件路径
-
-    Raises:
-        RuntimeError: 导入失败抛出异常
-
-    Returns:
-        Callable[..., typing.Any]: 导入的函数
+        module_path (Path): 模块路径
     """
 
     module_name = module_path.stem.replace("-", "_")
@@ -1465,12 +1461,33 @@ def dynamic_import_function(function_name: str, module_path: Path) -> Callable[.
     module = importlib.util.module_from_spec(spec)
     loader = spec.loader
     assert loader, f'Cannot load module "{module_path}".'
+    module_dir = str(module_path.parent)
+    sys.path.insert(0, module_dir)
     loader.exec_module(module)
+    yield module
+    for i, dir in enumerate(sys.path):
+        if dir == module_dir:
+            del sys.path[i]
+
+
+def dynamic_import_function(function_name: str, module: types.ModuleType) -> Callable[..., typing.Any]:
+    """从模块中动态导入函数
+
+    Args:
+        function_name (str): 函数名称
+        module (types.ModuleType): 加载的模块
+
+    Raises:
+        RuntimeError: 导入失败抛出异常
+
+    Returns:
+        Callable[..., typing.Any]: 导入的函数
+    """
 
     try:
         return getattr(module, function_name)
     except:
-        raise RuntimeError(f'Cannot import function "{function_name}" from "{module_name}".')
+        raise RuntimeError(f'Cannot import function "{function_name}" from "{module.__name__}".')
 
 
 assert __name__ != "__main__", "Import this file instead of running it directly."
