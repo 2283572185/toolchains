@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from toolchains.common import support_dry_run
-
 from common import *
+
+from toolchains.common import support_dry_run
 
 
 @support_dry_run(create_ldscript_echo)
