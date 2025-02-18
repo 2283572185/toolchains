@@ -48,7 +48,7 @@ def get_specific_environment(self: common.basic_environment, host: str | None = 
         environment: 指定配置的gcc环境
     """
 
-    return environment(self.build, host, target, str(self.home), self.jobs, str(self.prefix_dir), self.compress_level, True)
+    return environment(self.build, host, target, self.home, self.jobs, self.prefix_dir, self.compress_level, True)
 
 
 class toolchain_type(StrEnum):
@@ -95,9 +95,9 @@ class environment(common.basic_environment):
         build: str,
         host: None | str,
         target: None | str,
-        home: str,
+        home: Path,
         jobs: int,
-        prefix_dir: str,
+        prefix_dir: Path,
         compress_level: int,
         simple: bool = False,
     ) -> None:
@@ -448,9 +448,9 @@ class build_environment:
         gdb: bool,
         gdbserver: bool,
         newlib: bool,
-        home: str,
+        home: Path,
         jobs: int,
-        prefix_dir: str,
+        prefix_dir: Path,
         nls: bool,
         compress_level: int,
     ) -> None:
@@ -463,8 +463,9 @@ class build_environment:
             gdb (bool): 是否启用gdb
             gdbserver (bool): 是否启用gdbserver
             newlib (bool): 是否启用newlib, 仅对独立工具链有效
-            home (str): 源代码树搜索主目录
+            home (Path): 源代码树搜索主目录
             jobs (int): 并发构建数
+            prefix_dir (Path): 安装根目录
             nls (bool): 是否启用nls
             compress_level (int): zstd压缩等级
         """

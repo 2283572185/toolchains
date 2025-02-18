@@ -717,18 +717,18 @@ class basic_environment:
     compress_level: int  # zstd压缩等级
 
     def __init__(
-        self, build: str, version: str, name_without_version: str, home: str, jobs: int, prefix_dir: str, compress_level: int
+        self, build: str, version: str, name_without_version: str, home: Path, jobs: int, prefix_dir: Path, compress_level: int
     ) -> None:
         self.build = build
         self.version = version
         self.major_version = self.version.split(".")[0]
         self.name_without_version = name_without_version
         self.name = self.name_without_version + self.major_version
-        self.home = Path(home)
+        self.home = home
         self.jobs = jobs
         self.root_dir = Path(__file__).parent.resolve()
         self.script_dir = self.root_dir.parent / "script"
-        self.prefix_dir = Path(prefix_dir)
+        self.prefix_dir = prefix_dir
         self.bin_dir = self.prefix_dir / self.name / "bin"
         self.compress_level = compress_level
 

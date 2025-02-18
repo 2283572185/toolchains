@@ -125,7 +125,25 @@ class environment(common.basic_environment):
         self.prefix["runtimes"] = self.prefix["llvm"] / "install"
         self.compiler_rt_dir = self.prefix["llvm"] / "lib" / "clang" / self.major_version / "lib"
 
-    def __init__(self, build: str, host: str | None, home: str, jobs: int, prefix_dir: str, compress_level: int) -> None:
+    def __init__(
+        self,
+        build: str,
+        host: str | None,
+        home: Path,
+        jobs: int,
+        prefix_dir: Path,
+        compress_level: int,
+    ) -> None:
+        """llvm构建环境
+
+        Args:
+            build (str): 构建平台
+            host (str): 宿主平台
+            home (Path): 源代码树搜索主目录
+            jobs (int): 并发构建数
+            prefix_dir (str): 安装根目录
+            compress_level (int): zstd压缩等级
+        """
         self.build = build
         self.host = host or self.build
         name_without_version = f"{self.host}-clang"
