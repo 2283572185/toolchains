@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from enum import StrEnum
 from pathlib import Path
 
 from . import common
@@ -51,29 +50,13 @@ def get_specific_environment(self: common.basic_environment, host: str | None = 
     return environment(self.build, host, target, self.home, self.jobs, self.prefix_dir, self.compress_level, True)
 
 
-class toolchain_type(StrEnum):
-    """工具链类型枚举
-
-    Attributes:
-        native        : 本地工具链，build == host == target
-        cross         : 交叉工具链，build == host != target
-        canadian      : 加拿大工具链，build != host == target
-        canadian_cross: 加拿大交叉工具链，build != host != target
-    """
-
-    native = "native"
-    cross = "cross"
-    canadian = "canadian"
-    canadian_cross = "canadian cross"
-
-
 class environment(common.basic_environment):
     """gcc构建环境"""
 
     build: str  # build平台
     host: str  # host平台
     target: str  # target平台
-    toolchain_type: "toolchain_type"  # 工具链类别
+    toolchain_type: common.toolchain_type  # 工具链类别
     cross_compiler: bool  # 是否是交叉编译器
     prefix: Path  # 工具链安装位置
     lib_prefix: Path  # 安装后库目录的前缀]
@@ -105,21 +88,15 @@ class environment(common.basic_environment):
         self.host = host or build
         self.target = target or self.host
         # 鉴别工具链类别
-        if self.build == self.host == self.target:
-            self.toolchain_type = toolchain_type.native
-        elif self.build == self.host != self.target:
-            self.toolchain_type = toolchain_type.cross
-        elif self.build != self.host == self.target:
-            self.toolchain_type = toolchain_type.canadian
-        else:
-            self.toolchain_type = toolchain_type.canadian_cross
-        self.cross_compiler = self.host != self.target
+        self.toolchain_type = common.toolchain_type.classify_toolchain(self.build, self.host, self.target)
+        self.freestanding = self.toolchain_type.contain(common.toolchain_type.freestanding)
+        self.cross_compiler = self.toolchain_type.contain(common.toolchain_type.cross | common.toolchain_type.canadian_cross)
 
         name_without_version = (f"{self.host}-host-{self.target}-target" if self.cross_compiler else f"{self.host}-native") + "-gcc"
         super().__init__(build, "15.0.1", name_without_version, home, jobs, prefix_dir, compress_level)
 
         self.prefix = self.prefix_dir / self.name
-        self.lib_prefix = self.prefix / self.target if self.toolchain_type != toolchain_type.canadian else self.prefix
+        self.lib_prefix = self.prefix / self.target if not self.toolchain_type.contain(common.toolchain_type.canadian) else self.prefix
         self.share_dir = self.prefix / "share"
         self.gdbinit_path = self.share_dir / ".gdbinit"
         self.host_32_bit = self.host.startswith(arch_32_bit_list)
@@ -156,15 +133,14 @@ class environment(common.basic_environment):
 
         self.python_config_path = self.root_dir.parent / "script" / "python_config.sh"
         # 加载工具链
-        if self.toolchain_type in (toolchain_type.cross, toolchain_type.canadian, toolchain_type.canadian_cross):
+        if self.toolchain_type.contain(common.toolchain_type.cross | common.toolchain_type.canadian | common.toolchain_type.canadian_cross):
             get_specific_environment(self).register_in_env()
-        if self.toolchain_type in (toolchain_type.canadian, toolchain_type.canadian_cross):
+        if self.toolchain_type.contain(common.toolchain_type.canadian | common.toolchain_type.canadian_cross):
             get_specific_environment(self, target=self.host).register_in_env()
-        if self.toolchain_type == toolchain_type.canadian_cross:
+        if self.toolchain_type.contain(common.toolchain_type.canadian_cross):
             get_specific_environment(self, target=self.target).register_in_env()
         # 将自身注册到环境变量中
         self.register_in_env()
-        self.freestanding = self.target_field.abi in ("elf", "eabi")
 
     def enter_build_dir(self, lib: str, remove_files: bool = True) -> None:
         """进入构建目录
@@ -438,7 +414,7 @@ class build_environment:
     need_gdb: bool  # 是否需要编译gdb
     need_gdbserver: bool  # 是否需要编译gdbserver
     need_newlib: bool  # 是否需要编译newlib，仅对独立工具链有效
-    native_or_canadian = (toolchain_type.native, toolchain_type.canadian)  # host == target
+    native_or_canadian = common.toolchain_type.native | common.toolchain_type.canadian  # host == target
 
     def __init__(
         self,
@@ -523,7 +499,7 @@ class build_environment:
                 *get_mingw_gdb_lib_options(self.env),
             ],
         }
-        enable_gdbserver_when_build_gdb = gdbserver and self.env.toolchain_type in self.native_or_canadian
+        enable_gdbserver_when_build_gdb = gdbserver and self.env.toolchain_type.contain(self.native_or_canadian)
         gdbserver_option = "--enable-gdbserver" if enable_gdbserver_when_build_gdb else "--disable-gdbserver"
         self.gdb_option = (
             [
@@ -556,7 +532,7 @@ class build_environment:
             self.gdbserver_option.append(w64_gdbsupport_option)
 
         # 本地工具链和交叉工具链需要完整编译
-        self.full_build = self.env.toolchain_type in (toolchain_type.native, toolchain_type.cross)
+        self.full_build = self.env.toolchain_type.contain(common.toolchain_type.native | common.toolchain_type.cross)
         # 编译不完整libgcc时所需的stubs.h所在路径
         self.glibc_phony_stubs_path = self.env.lib_prefix / "include" / "gnu" / "stubs.h"
         # 由相关函数自动推动架构名
@@ -586,7 +562,7 @@ class build_environment:
             self.env.install("install-strip-gdbserver")
 
         # 复制gdb所需运行库
-        if self.need_gdb and self.env.toolchain_type not in self.native_or_canadian:
+        if self.need_gdb and not self.env.toolchain_type.contain(self.native_or_canadian):
             gcc = get_specific_environment(self.env, target=self.env.host)
             if self.host_os == "linux":
                 for dll in ("libstdc++.so.6", "libgcc_s.so.1"):
@@ -697,7 +673,7 @@ class build_environment:
         self.env.make()
         self.env.install()
         # 为交叉工具链添加target前缀
-        if self.env.toolchain_type not in self.native_or_canadian:
+        if not self.env.toolchain_type.contain(self.native_or_canadian):
             pexports = "pexports.exe" if self.host_os == "w64" else "pexports"
             common.rename(self.env.bin_dir / pexports, self.env.bin_dir / f"{self.env.target}-{pexports}")
 
@@ -820,7 +796,7 @@ class build_environment:
         # 编译gdb依赖库
         if self.need_gdb and self.host_os == "w64":
             build_mingw_gdb_requirements(self.env)
-        if self.env.toolchain_type == toolchain_type.native:
+        if self.env.toolchain_type.contain(common.toolchain_type.native):
             self.native_build_linux(self)
         elif self.full_build:
             assert self.target_os in ("linux", "w64", "unknown")

@@ -15,6 +15,7 @@ import types
 import typing
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from enum import IntFlag, auto
 from pathlib import Path
 from typing import Self
 
@@ -1488,6 +1489,75 @@ def dynamic_import_function(function_name: str, module: types.ModuleType) -> Cal
         return typing.cast(Callable[..., typing.Any], getattr(module, function_name))
     except:
         raise RuntimeError(f'Cannot import function "{function_name}" from "{module.__name__}".')
+
+
+class toolchain_type(IntFlag):
+    """工具链类型枚举
+
+    Attributes:
+        native        : 本地工具链，build == host == target
+        cross         : 交叉工具链，build == host != target
+        canadian      : 加拿大工具链，build != host == target
+        canadian_cross: 加拿大交叉工具链，build != host != target
+        hosted        : 宿主工具链，target为宿主平台
+        freestanding  : 独立工具链，target为独立平台
+    """
+
+    native = auto()
+    cross = auto()
+    canadian = auto()
+    canadian_cross = auto()
+    hosted = auto()
+    freestanding = auto()
+
+    def __str__(self) -> str:
+        freestanding_hosted_type = "unknown"
+        target_type = "unknown"
+        for flag in toolchain_type:
+            if self & flag:
+                if flag in (toolchain_type.hosted, toolchain_type.freestanding):
+                    freestanding_hosted_type = flag.name or "unknown"
+                else:
+                    target_type = (flag.name or "unknown").replace("_", " ")
+        return f"{freestanding_hosted_type} {target_type} toolchain"
+
+    def contain(self, mask: "toolchain_type") -> bool:
+        """判断是否包含掩码中指定的标记
+
+        Args:
+            mask (toolchain_type): 掩码
+
+        Returns:
+            bool: 是否包含相应标记
+        """
+
+        return bool(self & mask)
+
+    @staticmethod
+    def classify_toolchain(build: str, host: str, target: str) -> "toolchain_type":
+        """鉴别工具链种类
+
+        Args:
+            build (str): build平台
+            host (str): host平台
+            target (str): target平台
+
+        Returns:
+            toolchain_type: 工具链类型
+        """
+
+        if build == host == target:
+            result = toolchain_type.native
+        elif build == host != target:
+            result = toolchain_type.cross
+        elif build != host == target:
+            result = toolchain_type.canadian
+        else:
+            result = toolchain_type.canadian_cross
+
+        target_field = triplet_field(target)
+        result |= toolchain_type.freestanding if target_field.abi in ("elf", "eabi") else toolchain_type.hosted
+        return result
 
 
 assert __name__ != "__main__", "Import this file instead of running it directly."
