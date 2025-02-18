@@ -22,6 +22,7 @@ repository = "https://github.com/24bit-xjkp/toolchains"
 [project.scripts]
 toolchains-download = "toolchains.download:main"
 toolchains-gcc = "toolchains.build_gcc:main"
+toolchains-llvm = "toolchains.build_llvm:main"
 
 [tool.poetry]
 package-mode = true
