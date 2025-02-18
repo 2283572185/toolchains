@@ -745,26 +745,6 @@ class basic_environment:
         """注册安装路径到环境变量"""
         insert_environ("PATH", self.bin_dir)
 
-    def _register_in_bashrc_echo(self) -> str:
-        """在.bashrc中注册工具链时回显信息
-
-        Returns:
-            str: 回显信息
-        """
-
-        return toolchains_info(f"Registering toolchain -> {self.home / '.bashrc'}.")
-
-    @support_dry_run(_register_in_bashrc_echo)
-    def register_in_bashrc(self, dry_run: bool | None = None) -> None:
-        """注册安装路径到用户配置文件
-
-        Args:
-            dry_run (bool | None, optional): 是否只回显命令而不执行，默认为None.
-        """
-
-        with (self.home / ".bashrc").open("a") as file:
-            file.write(f"export PATH={self.bin_dir}:$PATH\n")
-
     def installed(self) -> bool:
         """判断工具链是否已经安装
 
