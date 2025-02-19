@@ -1018,11 +1018,20 @@ class triplet_completer:
 
     origin_triplet_list: list[str]
     triplet_list: list[triplet_field]
+    option_list: list[str]
     arch_list: list[str]
 
-    def __init__(self, triplet_list: list[str]) -> None:
+    def __init__(self, triplet_list: list[str], option_list: list[str] = []) -> None:
+        """创建平台名称补全对象
+
+        Args:
+            triplet_list (list[str]): 平台列表
+            option_list (list[str]): 其他选项列表，如"all"选项
+        """
+
         self.origin_triplet_list = triplet_list
         self.triplet_list = [triplet_field(triplet) for triplet in triplet_list]
+        self.option_list = option_list
         self.arch_list = list({triplet.arch for triplet in self.triplet_list})
 
     class _filter:
@@ -1064,27 +1073,34 @@ class triplet_completer:
     def __call__(self, prefix: str, **_: typing.Any) -> list[str]:
         # 解析已输入内容
         parse_result = triplet_field.try_parse(prefix)
+        result: list[str] = []
         match (prefix.count("-")):
             case 0:
-                return self._get_triplet_list(parse_result.arch) if prefix else self.origin_triplet_list
+                result = self._get_triplet_list(parse_result.arch) if prefix else self.origin_triplet_list
             case 1:
-                return self._get_triplet_list(parse_result.arch, parse_result.os)
+                result = self._get_triplet_list(parse_result.arch, parse_result.os)
             case 2:
                 arch = parse_result.arch
                 os = parse_result.os
                 if abi := parse_result.abi:
-                    return self._get_triplet_list(arch, os, abi)
+                    result = self._get_triplet_list(arch, os, abi)
                 else:
                     triplet_list = self._get_filter(arch, os)
-                    return ["-".join((arch, parse_result.vendor, triplet.os, triplet.abi)) for triplet in triplet_list]
+                    result = ["-".join((arch, parse_result.vendor, triplet.os, triplet.abi)) for triplet in triplet_list]
             case 3:
                 arch = parse_result.arch
                 os = parse_result.os
                 abi = parse_result.abi
                 abi_list = [triplet.abi for triplet in self._get_filter(arch, os, abi)]
-                return ["-".join((arch, parse_result.vendor, os, abi)) for abi in abi_list]
+                result = ["-".join((arch, parse_result.vendor, os, abi)) for abi in abi_list]
             case _:
-                return []
+                result = []
+
+        for option in self.option_list:
+            if option.startswith(prefix):
+                result.append(option)
+
+        return result
 
 
 def resolve_path(path: str | Path, base_path: Path) -> Path:
