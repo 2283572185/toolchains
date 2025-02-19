@@ -84,7 +84,7 @@ __all__ = [
 ]
 
 
-def main() -> None:
+def main() -> int:
     default_config = configure()
 
     parser = argparse.ArgumentParser(
@@ -123,20 +123,26 @@ def main() -> None:
     )
 
     argcomplete.autocomplete(parser)
-    args = parser.parse_args()
-    _check_input(args, args.command == "build")
-    current_config = configure.parse_args(args)
+    errno = 0
+    try:
+        args = parser.parse_args()
+        _check_input(args, args.command == "build")
+        current_config = configure.parse_args(args)
 
-    # 检查合并配置后环境是否正确
-    current_config.check()
-    current_config.save_config()
+        # 检查合并配置后环境是否正确
+        current_config.check()
+        current_config.save_config()
 
-    match (args.command):
-        case "build":
-            build_specific_gcc(current_config, args.host, args.target)
-        case "dump":
-            dump_support_platform()
-        case _:
-            pass
-
-    common.status_counter.show_status()
+        match (args.command):
+            case "build":
+                build_specific_gcc(current_config, args.host, args.target)
+            case "dump":
+                dump_support_platform()
+            case _:
+                pass
+    except Exception as e:
+            common.toolchains_print(e)
+            errno = 1
+    finally:
+        common.status_counter.show_status()
+        return errno

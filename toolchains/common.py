@@ -674,6 +674,8 @@ def _check_lib_dir_echo(lib: str, lib_dir: Path, dry_run: bool | None) -> str:
 
     basic_info = toolchains_info(f"Checking {lib} in {lib_dir} ... ")
     skip_info = color.note.wrapper("skip for dry run\n")
+    if need_dry_run(dry_run):
+        status_counter.add_note()
     return basic_info + (skip_info if need_dry_run(dry_run) else "")
 
 
@@ -693,10 +695,12 @@ def check_lib_dir(lib: str, lib_dir: Path, do_assert: bool = True, dry_run: bool
 
     if not do_assert and not lib_dir.exists():
         toolchains_print(color.error.wrapper("no"))
+        status_counter.add_warning()
         return False
     else:
         assert lib_dir.exists(), toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
     toolchains_print(color.success.wrapper("yes"))
+    status_counter.add_success()
     return True
 
 
@@ -1179,9 +1183,7 @@ class basic_configure:
             try:
                 with file_path.open() as file:
                     import_config_list = json.load(file)
-                assert isinstance(import_config_list, dict), toolchains_error(
-                    f"Invalid configure file. The configure file must begin with a object."
-                )
+                assert isinstance(import_config_list, dict), f"Invalid configure file. The configure file must begin with a object."
                 import_config_list = typing.cast(dict[str, typing.Any], import_config_list)
             except Exception as e:
                 raise RuntimeError(toolchains_error(f'Import file "{file_path}" failed: {e}'))

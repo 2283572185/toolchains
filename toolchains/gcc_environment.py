@@ -217,8 +217,8 @@ class environment(common.basic_environment):
         def_path = lib_dir / "libpython.def"
         if not lib_path.exists():
             dll_list = list(filter(lambda dll: dll.name.startswith("python") and dll.name.endswith(".dll"), lib_dir.iterdir()))
-            assert dll_list != [], common.toolchains_error(f'Cannot find python*.dll in "{lib_dir}" directory.')
-            assert len(dll_list) == 1, common.toolchains_error(f'Find too many python*.dll in "{lib_dir}" directory.')
+            assert dll_list != [], f'Cannot find python*.dll in "{lib_dir}" directory.'
+            assert len(dll_list) == 1, f'Find too many python*.dll in "{lib_dir}" directory.'
             dll_path = lib_dir / dll_list[0]
             # 工具链最后运行在宿主平台上，故而应该使用宿主平台的工具链从.lib文件制作.a文件
             common.run_command(f"{self.host}-pexports {dll_path} > {def_path}")
@@ -461,7 +461,7 @@ class build_environment:
             "CXXFLAGS=-O3",
         ]
         self.need_gdb, self.need_gdbserver, self.need_newlib = gdb, gdbserver, newlib
-        assert not self.env.freestanding or not self.need_gdbserver, common.toolchains_error(
+        assert not self.env.freestanding or not self.need_gdbserver, (
             "Cannot build gdbserver for freestanding platform.\n" "You should use other server implementing the gdb protocol like OpenOCD."
         )
 

@@ -263,7 +263,7 @@ __all__ = [
 ]
 
 
-def main() -> None:
+def main() -> int:
     """cli主函数"""
 
     default_config = configure()
@@ -330,28 +330,35 @@ def main() -> None:
     )
 
     argcomplete.autocomplete(parser)
-    args = parser.parse_args()
-    # 检查输入是否合法
-    _check_input(args)
 
-    current_config = configure.parse_args(args)
+    errno = 0
+    try:
+        args = parser.parse_args()
+        # 检查输入是否合法
+        _check_input(args)
 
-    # 检查合并配置后环境是否正确
-    current_config.check(args.command == "download")
-    current_config.save_config()
+        current_config = configure.parse_args(args)
 
-    match (args.command):
-        case "update":
-            update(current_config)
-        case "download":
-            download(current_config)
-        case "auto":
-            auto_download(current_config)
-        case "system":
-            print(common.toolchains_info(f"Please install following system libs: \n{' '.join(get_system_lib_list())}"))
-        case "remove":
-            remove(current_config, args.remove or all_lib_list.all_lib_list)
-        case _:
-            pass
+        # 检查合并配置后环境是否正确
+        current_config.check(args.command == "download")
+        current_config.save_config()
 
-    common.status_counter.show_status()
+        match (args.command):
+            case "update":
+                update(current_config)
+            case "download":
+                download(current_config)
+            case "auto":
+                auto_download(current_config)
+            case "system":
+                print(common.toolchains_info(f"Please install following system libs: \n{' '.join(get_system_lib_list())}"))
+            case "remove":
+                remove(current_config, args.remove or all_lib_list.all_lib_list)
+            case _:
+                pass
+    except Exception as e:
+        common.toolchains_print(e)
+        errno = 1
+    finally:
+        common.status_counter.show_status()
+        return errno
