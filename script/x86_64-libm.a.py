@@ -18,6 +18,5 @@ def create_ldscript(ldscript_path: Path, dry_run: bool | None = None) -> None:
     ldscript_path.write_text(ldscript)
 
 
-@support_dry_run(create_ldscript_echo)
 def main(lib_dir: Path) -> None:
     create_ldscript(lib_dir / "libm.a")
