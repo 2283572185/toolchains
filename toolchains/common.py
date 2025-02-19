@@ -15,7 +15,7 @@ import types
 import typing
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from enum import IntFlag, auto
+from enum import IntEnum, IntFlag, auto
 from pathlib import Path
 from typing import Self
 
@@ -23,6 +23,20 @@ import colorama
 
 # 受支持的os列表
 support_os_list = ("linux", "w64", "none")
+
+
+class message_type(IntEnum):
+    """toolchains项目显示消息的前缀
+
+    Attributes:
+        toolchains         : 添加[toolchains]前缀
+        toolchains_internal: 添加[toolchains internal]前缀
+        none               : 不添加前缀
+    """
+
+    toolchains = auto()
+    toolchain_internal = auto()
+    none = auto()
 
 
 class color(enum.StrEnum):
@@ -43,6 +57,7 @@ class color(enum.StrEnum):
     note = colorama.Fore.LIGHTBLUE_EX
     reset = colorama.Fore.RESET
     toolchains = f"{colorama.Fore.CYAN}[toolchains]{reset}"
+    toolchains_internal = f"{colorama.Fore.CYAN}[toolchains internal]{reset}"
 
     def wrapper(self, string: str) -> str:
         """以指定颜色输出string，然后恢复默认配色
@@ -55,6 +70,25 @@ class color(enum.StrEnum):
         """
 
         return f"{self}{string}{color.reset}"
+
+    @staticmethod
+    def get_prefix(message_prefix: message_type) -> str:
+        """获取toolchains前缀
+
+        Args:
+            message_prefix (message_type): 前缀类型
+
+        Returns:
+            str: 前缀字符串
+        """
+
+        match (message_prefix):
+            case message_type.toolchains:
+                return color.toolchains
+            case message_type.toolchain_internal:
+                return color.toolchains_internal
+            case message_type.none:
+                return ""
 
 
 class status_counter:
@@ -127,74 +161,79 @@ class status_counter:
             )
 
 
-def toolchains_warning(string: str) -> str:
+def toolchains_warning(string: str, message_prefix: message_type = message_type.toolchains) -> str:
     """返回toolchains的警告信息
 
     Args:
         string (str): 警告字符串
+        message_prefix (message_type, optional): 前缀类型
 
     Returns:
         str: [toolchains] warning
     """
 
     status_counter.add_warning()
-    return f"{color.toolchains} {color.warning.wrapper(string)}"
+    return f"{color.get_prefix(message_prefix)}{color.warning.wrapper(string)}"
 
 
-def toolchains_error(string: str) -> str:
+def toolchains_error(string: str, message_prefix: message_type = message_type.toolchains) -> str:
     """返回toolchains的错误信息
 
     Args:
         string (str): 错误字符串
+        message_prefix (message_type, optional): 前缀类型
 
     Returns:
         str: [toolchains] error
     """
 
     status_counter.add_error()
-    return f"{color.toolchains} {color.error.wrapper(string)}"
+    return f"{color.get_prefix(message_prefix)}{color.error.wrapper(string)}"
 
 
-def toolchains_success(string: str) -> str:
+def toolchains_success(string: str, message_prefix: message_type = message_type.toolchains) -> str:
     """返回toolchains的成功信息
 
     Args:
         string (str): 成功字符串
+        message_prefix (message_type, optional): 前缀类型
 
     Returns:
         str: [toolchains] success
     """
 
     status_counter.add_success()
-    return f"{color.toolchains} {color.success.wrapper(string)}"
+    return f"{color.get_prefix(message_prefix)}{color.success.wrapper(string)}"
 
 
-def toolchains_note(string: str) -> str:
+def toolchains_note(string: str, message_prefix: message_type = message_type.toolchains) -> str:
     """返回toolchains的提示信息
 
     Args:
         string (str): 提示字符串
+        message_prefix (message_type, optional): 前缀类型
 
     Returns:
         str: [toolchains] note
     """
 
     status_counter.add_note()
-    return f"{color.toolchains} {color.note.wrapper(string)}"
+    return f"{color.get_prefix(message_prefix)}{color.note.wrapper(string)}"
 
 
-def toolchains_info(string: str) -> str:
+def toolchains_info(string: str, message_prefix: message_type = message_type.toolchains) -> str:
     """返回toolchains的普通信息
 
     Args:
         string (str): 提示字符串
+        message_prefix (message_type, optional): 前缀类型
 
     Returns:
         str: [toolchain] info
     """
 
     status_counter.add_info()
-    return f"{color.toolchains} {string}"
+    return f"{color.get_prefix(message_prefix)}{string}"
 
 
 class command_dry_run:
@@ -293,15 +332,18 @@ def support_dry_run[
             if echo_fn:
                 param_list: list[typing.Any] = []
                 for key in inspect.signature(echo_fn).parameters.keys():
-                    assert (
-                        key in bound_args.arguments
-                    ), f"The param {key} of echo_fn is not in the param list of fn. Every param of echo_fn should be able to find in the param list of fn."
+                    assert key in bound_args.arguments, toolchains_error(
+                        f"The param {key} of echo_fn is not in the param list of fn. Every param of echo_fn should be able to find in the param list of fn.",
+                        message_type.toolchain_internal,
+                    )
                     param_list.append(bound_args.arguments[key])
                 echo = echo_fn(*param_list)
                 if echo is not None:
                     toolchains_print(echo, end=end)
             dry_run: bool | None = bound_args.arguments.get("dry_run")
-            assert isinstance(dry_run, bool | None), f"The param dry_run must be a bool or None."
+            assert isinstance(dry_run, bool | None), toolchains_error(
+                f"The param dry_run must be a bool or None.", message_type.toolchain_internal
+            )
             if need_dry_run(dry_run):
                 return None
             return fn(*bound_args.args, **bound_args.kwargs)
@@ -673,10 +715,10 @@ def _check_lib_dir_echo(lib: str, lib_dir: Path, dry_run: bool | None) -> str:
     """
 
     basic_info = toolchains_info(f"Checking {lib} in {lib_dir} ... ")
-    skip_info = color.note.wrapper("skip for dry run\n")
     if need_dry_run(dry_run):
-        status_counter.add_note()
-    return basic_info + (skip_info if need_dry_run(dry_run) else "")
+        return basic_info + toolchains_note("skip for dry run\n", message_type.none)
+    else:
+        return basic_info
 
 
 @support_dry_run(_check_lib_dir_echo, "")
@@ -695,12 +737,10 @@ def check_lib_dir(lib: str, lib_dir: Path, do_assert: bool = True, dry_run: bool
 
     if not do_assert and not lib_dir.exists():
         toolchains_print(color.error.wrapper("no"))
-        status_counter.add_warning()
         return False
     else:
         assert lib_dir.exists(), toolchains_error(f"Cannot find lib '{lib}' in directory '{lib_dir}'.")
-    toolchains_print(color.success.wrapper("yes"))
-    status_counter.add_success()
+    toolchains_print(toolchains_success("yes", message_type.none))
     return True
 
 
@@ -788,6 +828,7 @@ class triplet_field:
         fields = triplet.split("-")
         self.arch = fields[0]
         self.num = len(fields)
+        message = toolchains_error(f'Illegal triplet "{triplet}"')
         match (self.num):
             case 2:
                 self.os = "unknown"
@@ -806,9 +847,9 @@ class triplet_field:
                 self.os = fields[2]
                 self.abi = fields[3]
             case _:
-                raise RuntimeError(f'Illegal triplet "{triplet}"')
+                raise RuntimeError(message)
 
-        assert self.arch and self.vendor and self.os and self.abi, f'Illegal triplet "{triplet}"'
+        assert self.arch and self.vendor and self.os and self.abi, message
 
         # 正则化
         if normalize:
@@ -1097,8 +1138,12 @@ class basic_configure:
 
         cls = type(self)
         parma_list = self._get_default_param_list().keys()
-        assert param_name in parma_list, f"The param {param_name} is not a parma of the __init__ function."
-        assert hasattr(self, attribute_name), f"The attribute {attribute_name} is not an attribute of self."
+        assert param_name in parma_list, toolchains_error(
+            f"The param {param_name} is not a parma of the __init__ function.", message_type.toolchain_internal
+        )
+        assert hasattr(self, attribute_name), toolchains_error(
+            f"The attribute {attribute_name} is not an attribute of self.", message_type.toolchain_internal
+        )
         cls.encode_name_map[param_name] = attribute_name
 
     def __init__(self, home: str = str(Path.home()), base_path: Path = Path.cwd()) -> None:
@@ -1183,7 +1228,9 @@ class basic_configure:
             try:
                 with file_path.open() as file:
                     import_config_list = json.load(file)
-                assert isinstance(import_config_list, dict), f"Invalid configure file. The configure file must begin with a object."
+                assert isinstance(import_config_list, dict), toolchains_error(
+                    f"Invalid configure file. The configure file must begin with a object."
+                )
                 import_config_list = typing.cast(dict[str, typing.Any], import_config_list)
             except Exception as e:
                 raise RuntimeError(toolchains_error(f'Import file "{file_path}" failed: {e}'))
@@ -1303,7 +1350,9 @@ class basic_configure:
                     case None:
                         # 若key不存在且未被映射过则跳过，是不需要序列化的中间参数
                         # 若key不存在且映射过则说明映射表encode_name_map有误
-                        assert mapped_key == key, f"The encode_name_map maps the param {key} to a noexist attribute."
+                        assert mapped_key == key, toolchains_error(
+                            f"The encode_name_map maps the param {key} to a noexist attribute.", message_type.toolchain_internal
+                        )
                     # 将集合转化为列表
                     case set():
                         output_list[key] = list(typing.cast(set[object], value))
@@ -1353,7 +1402,7 @@ class basic_configure:
             try:
                 file_path.write_text(json.dumps(self.encode(), indent=4))
             except Exception as e:
-                raise RuntimeError(f'Export settings to file "{file_path}" failed: {e}')
+                raise RuntimeError(toolchains_error(f'Export settings to file "{file_path}" failed: {e}'))
 
 
 def get_default_build_platform() -> str | None:
@@ -1445,9 +1494,9 @@ class basic_build_configure(basic_configure):
         """检查工具链构建配置是否合法"""
 
         check_home(self.home)
-        assert self.build and triplet_field.check(self.build), f"Invalid build platform: {self.build}."
-        assert self.jobs > 0, f"Invalid jobs: {self.jobs}."
-        assert 1 <= self.compress_level <= 22, f"Invalid compress level: {self.compress_level}"
+        assert self.build and triplet_field.check(self.build), toolchains_error(f"Invalid build platform: {self.build}.")
+        assert self.jobs > 0, toolchains_error(f"Invalid jobs: {self.jobs}.")
+        assert 1 <= self.compress_level <= 22, toolchains_error(f"Invalid compress level: {self.compress_level}")
 
 
 @contextmanager
@@ -1460,10 +1509,11 @@ def dynamic_import_module(module_path: Path) -> Generator[types.ModuleType, None
 
     module_name = module_path.stem.replace("-", "_")
     spec = importlib.util.spec_from_file_location(module_name, module_path)
-    assert spec, f'Cannot load module "{module_path}".'
+    message = toolchains_error(f'Cannot load module "{module_path}".', message_type.toolchain_internal)
+    assert spec, message
     module = importlib.util.module_from_spec(spec)
     loader = spec.loader
-    assert loader, f'Cannot load module "{module_path}".'
+    assert loader, message
     module_dir = str(module_path.parent)
     sys.path.insert(0, module_dir)
     loader.exec_module(module)
@@ -1490,7 +1540,9 @@ def dynamic_import_function(function_name: str, module: types.ModuleType) -> Cal
     try:
         return typing.cast(Callable[..., typing.Any], getattr(module, function_name))
     except:
-        raise RuntimeError(f'Cannot import function "{function_name}" from "{module.__name__}".')
+        raise RuntimeError(
+            toolchains_error(f'Cannot import function "{function_name}" from "{module.__name__}".', message_type.toolchain_internal)
+        )
 
 
 class toolchain_type(IntFlag):

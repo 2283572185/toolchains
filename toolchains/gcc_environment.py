@@ -217,8 +217,8 @@ class environment(common.basic_environment):
         def_path = lib_dir / "libpython.def"
         if not lib_path.exists():
             dll_list = list(filter(lambda dll: dll.name.startswith("python") and dll.name.endswith(".dll"), lib_dir.iterdir()))
-            assert dll_list != [], f'Cannot find python*.dll in "{lib_dir}" directory.'
-            assert len(dll_list) == 1, f'Find too many python*.dll in "{lib_dir}" directory.'
+            assert dll_list != [], common.toolchains_error(f'Cannot find python*.dll in "{lib_dir}" directory.')
+            assert len(dll_list) == 1, common.toolchains_error(f'Find too many python*.dll in "{lib_dir}" directory.')
             dll_path = lib_dir / dll_list[0]
             # 工具链最后运行在宿主平台上，故而应该使用宿主平台的工具链从.lib文件制作.a文件
             common.run_command(f"{self.host}-pexports {dll_path} > {def_path}")
@@ -241,7 +241,7 @@ class environment(common.basic_environment):
             need_python_embed_package (bool, optional): 是否需要打包python embed package. 默认不需要.
         """
 
-        if self.toolchain_type == "native":
+        if self.toolchain_type.contain(common.toolchain_type.native):
             # 本地工具链需要添加cc以代替系统提供的cc
             common.symlink(Path("gcc"), self.bin_dir / "cc")
         if need_gdbinit:
@@ -307,7 +307,7 @@ class environment(common.basic_environment):
         libgcc_prefix = self.prefix / "lib" / "gcc" / self.target
         include_path = next(libgcc_prefix.iterdir()) / "include" / "limits.h"
         with include_path.open("a") as file:
-            file.writelines(("#undef MB_LEN_MAX\n", "#define MB_LEN_MAX 16\n"))
+            file.write("#undef MB_LEN_MAX\n" "#define MB_LEN_MAX 16\n")
 
     def copy_from_other_toolchain(self, need_gdbserver: bool) -> bool:
         """从交叉工具链或本地工具链中复制libc、libstdc++、libgcc、linux头文件、gdbserver等到本工具链中
@@ -461,7 +461,7 @@ class build_environment:
             "CXXFLAGS=-O3",
         ]
         self.need_gdb, self.need_gdbserver, self.need_newlib = gdb, gdbserver, newlib
-        assert not self.env.freestanding or not self.need_gdbserver, (
+        assert not self.env.freestanding or not self.need_gdbserver, common.toolchains_error(
             "Cannot build gdbserver for freestanding platform.\n" "You should use other server implementing the gdb protocol like OpenOCD."
         )
 
@@ -638,7 +638,7 @@ class build_environment:
         env.configure(*build_env.libc_option, "libc_cv_forced_unwind=yes")
         env.make("install-headers")
         # 为了跨平台，不能使用mknod
-        with open(build_env.glibc_phony_stubs_path, "w"):
+        with build_env.glibc_phony_stubs_path.open("w"):
             pass
 
         # 编译安装libgcc
@@ -799,7 +799,9 @@ class build_environment:
         if self.env.toolchain_type.contain(common.toolchain_type.native):
             self.native_build_linux(self)
         elif self.full_build:
-            assert self.target_os in ("linux", "w64", "unknown")
+            assert self.target_os in ("linux", "w64", "unknown"), common.toolchains_error(
+                f"Unknown os: {self.target_os}.", common.message_type.toolchain_internal
+            )
             match (self.target_os):
                 case "linux":
                     self.full_build_linux(self)

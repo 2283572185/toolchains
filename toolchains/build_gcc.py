@@ -33,8 +33,8 @@ def check_triplet(host: str, target: str) -> None:
 
 def _check_input(args: argparse.Namespace, need_check: bool) -> None:
     if need_check:
-        assert args.jobs > 0, f"Invalid jobs: {args.jobs}."
-        assert 1 <= args.compress_level <= 22, f"Invalid compress level: {args.compress_level}"
+        assert args.jobs > 0, common.toolchains_error(f"Invalid jobs: {args.jobs}.")
+        assert 1 <= args.compress_level <= 22, common.toolchains_error(f"Invalid compress level: {args.compress_level}")
         check_triplet(args.host, args.target)
 
 
@@ -118,7 +118,7 @@ def main() -> int:
     build_parse.add_argument(
         "--nls",
         action=argparse.BooleanOptionalAction,
-        help="Whether to enable nls(nature language support) support in GCC toolchain.",
+        help="Whether to enable nls(nature language support) in GCC toolchain.",
         default=default_config.nls,
     )
 
@@ -141,8 +141,8 @@ def main() -> int:
             case _:
                 pass
     except Exception as e:
-            common.toolchains_print(e)
-            errno = 1
+        common.toolchains_print(e)
+        errno = 1
     finally:
         common.status_counter.show_status()
         return errno
