@@ -290,8 +290,8 @@ def toolchains_print(
     """根据全局设置决定是否需要打印信息
 
     Args:
-        sep (str | None, optional): 分隔符. 默认为 " ".
-        end (str | None, optional): 行尾序列. 默认为 "\n".
+        sep (str | None, optional): 分隔符. 默认为空格.
+        end (str | None, optional): 行尾序列. 默认为换行.
     """
 
     if not toolchains_quiet.get():
