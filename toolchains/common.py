@@ -13,11 +13,12 @@ import subprocess
 import sys
 import types
 import typing
+import asyncio
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from enum import IntEnum, IntFlag, auto
 from pathlib import Path
-from typing import Self
+from typing import Self, Awaitable
 
 import colorama
 
@@ -286,16 +287,18 @@ def toolchains_print(
     *values: object,
     sep: str | None = " ",
     end: str | None = "\n",
+    flush: bool = False,
 ) -> None:
     """根据全局设置决定是否需要打印信息
 
     Args:
         sep (str | None, optional): 分隔符. 默认为空格.
         end (str | None, optional): 行尾序列. 默认为换行.
+        flush (bool, optional): 是否刷新缓冲区. 默认为False.
     """
 
     if not toolchains_quiet.get():
-        print(*values, sep=sep, end=end)
+        print(*values, sep=sep, end=end, flush=flush)
 
 
 def need_dry_run(dry_run: bool | None) -> bool:
@@ -372,6 +375,33 @@ def _run_command_echo(command: str | list[str], echo: bool) -> str | None:
 _FILE: typing.TypeAlias = typing.IO[typing.Any] | None
 
 
+def _relocate_output(capture: bool | tuple[_FILE, _FILE], echo: bool) -> tuple[_FILE | int, _FILE | int]:
+    """ 运行命令时重定向 stdout 和 stderr
+
+    Args:
+        capture (bool | tuple[_FILE, _FILE], optional): 是否捕获输出. 默认为False.
+        echo (bool, optional): 是否回显. 默认为True.
+
+    Returns:
+        tuple[_FILE | int, _FILE | int]: 重定向后的stdout和stderr
+    """
+    if not isinstance(capture, (bool, tuple, type(None))) \
+            or not isinstance(echo, bool):
+        raise TypeError
+
+    if capture:
+        if isinstance(capture, bool):
+            stdout = stderr = subprocess.PIPE  # capture为True，不论是否回显都需要捕获输出
+        else:
+            stdout, stderr = capture  # 将输出捕获到传入的文件中
+    elif echo:
+        stdout = stderr = None  # 回显而不捕获输出则正常输出
+    else:
+        stdout = stderr = subprocess.DEVNULL  # 不回显又不捕获输出则丢弃输出
+
+    return stdout, stderr
+
+
 @support_dry_run(_run_command_echo)
 def run_command(
     command: str | list[str],
@@ -397,26 +427,64 @@ def run_command(
         None | subprocess.CompletedProcess[str]: 在命令正常执行结束后返回执行结果，否则返回None
     """
 
-    stdout: int | _FILE
-    stderr: int | _FILE
-    if capture:
-        if isinstance(capture, bool):
-            stdout = stderr = subprocess.PIPE  # capture为True，不论是否回显都需要捕获输出
-        else:
-            stdout, stderr = capture  # 将输出捕获到传入的文件中
-    elif echo:
-        stdout = stderr = None  # 回显而不捕获输出则正常输出
-    else:
-        stdout = stderr = subprocess.DEVNULL  # 不回显又不捕获输出则丢弃输出
+    stdout, stderr = _relocate_output(capture, echo)
+
     try:
         result = subprocess.run(
-            command if isinstance(command, str) else " ".join(command),
+            command,
             stdout=stdout,
             stderr=stderr,
             shell=isinstance(command, str),
             check=True,
             text=True,
         )
+    except subprocess.CalledProcessError as e:
+        if not ignore_error:
+            raise RuntimeError(toolchains_error(f'Command "{command}" failed.'))
+        elif echo:
+            toolchains_print(toolchains_warning(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.'))
+        return None
+    return result
+
+
+async def async_run_command(
+    *command: str,
+    ignore_error: bool = False,
+    capture: bool | tuple[_FILE, _FILE] = False,
+    echo: bool = True,
+) -> Awaitable[subprocess.CompletedProcess[str] | None]:
+    """运行指定命令, 若不忽略错误, 则在命令执行出错时抛出RuntimeError, 反之打印错误码
+
+    Args:
+        command (str | list[str]): 要运行的命令，使用str则在shell内运行，使用list[str]则直接运行
+        ignore_error (bool, optional): 是否忽略错误. 默认不忽略错误.
+        capture (bool | tuple[_FILE, _FILE], optional): 是否捕获命令输出，默认为不捕获. 若为tuple则capture[0]和capture[1]分别为stdout和stderr.
+                                                      tuple中字段为None表示不捕获相应管道的数据，则相应数据会回显
+        echo (bool, optional): 是否回显信息，设置为False将不回显任何信息，包括错误提示，默认为回显.
+
+    Raises:
+        RuntimeError: 命令执行失败且ignore_error为False时抛出异常
+
+    Returns:
+        None | subprocess.CompletedProcess[str]: 在命令正常执行结束后返回执行结果，否则返回None
+    """
+
+    assert isinstance(command, tuple) and all(isinstance(c, str) for c in command)
+
+    _command = []
+    for c in command:
+        if len(c) != 0:
+            _command.append(c)
+
+    stdout, stderr = _relocate_output(capture, echo)
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *_command,
+            stdout=stdout,
+            stderr=stderr,
+        )
+        result = await proc.communicate()
     except subprocess.CalledProcessError as e:
         if not ignore_error:
             raise RuntimeError(toolchains_error(f'Command "{command}" failed.'))

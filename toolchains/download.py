@@ -6,11 +6,23 @@ import argparse
 import os
 import pathlib
 import tempfile
+import asyncio
 
 import argcomplete
 
+from typing import Awaitable, Optional
+
 from . import common
-from .download_source import *
+from .download_source import (
+    configure,
+    all_lib_list,
+    extra_git_options_list,
+    git_clone_type,
+    after_download_list,
+    extra_lib_version,
+    git_prefer_remote,
+    git_url,
+)
 
 
 def _exist_echo(lib: str) -> None:
@@ -43,18 +55,19 @@ def _check_version_echo(lib: str, result: int) -> bool:
         return True
 
 
-def download_gcc_contrib(config: configure) -> None:
+async def download_gcc_contrib(config: configure) -> None:
     """下载gcc的依赖包
 
     Args:
         config (configure): 源代码下载环境
     """
     with common.chdir_guard(config.home / "gcc"):
-        common.run_command("contrib/download_prerequisites", echo=not common.command_quiet.get())
+        await common.async_run_command("contrib/download_prerequisites", echo=not common.command_quiet.get())
     common.status_counter.add_success()
+    return f"Processing {str(config.home / "gcc" / "contrib" / "download_prerequisites")} completed"
 
 
-def download_specific_extra_lib(config: configure, lib: str) -> None:
+async def download_specific_extra_lib(config: configure, lib: str) -> None:
     """下载指定的非git托管包
 
     Args:
@@ -64,51 +77,72 @@ def download_specific_extra_lib(config: configure, lib: str) -> None:
     assert lib in all_lib_list.extra_lib_list, common.toolchains_error(f"Unknown extra lib: {lib}")
     extra_lib_v = all_lib_list.extra_lib_list[lib]
     for file, url in extra_lib_v.url_list.items():
-        common.run_command(f"wget {url} {common.command_quiet.get_option()} -c -t {config.network_try_times} -O {config.home / file}")
+        await common.async_run_command(
+            "wget", url, common.command_quiet.get_option(), "-c", "-t", str(config.network_try_times),
+            "-O", str(config.home / file)
+        )
     common.status_counter.add_success()
+    return f"Downloading extra lib {lib} successfully"
 
 
-def download(config: configure) -> None:
+async def _download_from_github(config: configure, lib: str, url_fields: git_url) -> Awaitable[Optional[str]]:
+    lib_dir = config.home / lib
+    if not lib_dir.exists():
+        url = url_fields.get_url(config.git_use_ssh)
+        extra_options: list[str] = [*extra_git_options_list.get_option(config, lib), git_clone_type.get_clone_option(config)]
+        for _ in range(config.network_try_times):
+            try:
+                await common.async_run_command("git", "clone", url, common.command_quiet.get_option(), *extra_options, str(lib_dir), echo=False)
+                break
+            except KeyboardInterrupt:
+                common.toolchains_print(common.toolchains_info("Keyboard Interrupted!"))
+            except Exception:
+                common.remove_if_exists(lib_dir)
+                common.toolchains_print(common.toolchains_warning(f"Clone {lib} failed, retrying."))
+        else:
+            raise RuntimeError(common.toolchains_error(f"Clone {lib} failed."))
+        after_download_list.after_download_specific_lib(config, lib)
+        common.status_counter.add_success()
+        return f"Downloading ${str(lib_dir)} completed"
+    else:
+        _exist_echo(lib_dir)
+        return None
+
+
+async def download(config: configure) -> None:
     """下载不存在的源代码，不会更新已有源代码
 
     Args:
         config (configure): 源代码下载环境
     """
     # 下载git托管的源代码
-    for lib, url_fields in all_lib_list.get_prefer_git_lib_list(config).items():
-        lib_dir = config.home / lib
-        if not lib_dir.exists():
-            url = url_fields.get_url(config.git_use_ssh)
-            extra_options: list[str] = [*extra_git_options_list.get_option(config, lib), git_clone_type.get_clone_option(config)]
-            extra_option = " ".join(extra_options)
-            for _ in range(config.network_try_times):
-                try:
-                    common.run_command(f"git clone {url} {common.command_quiet.get_option()} {extra_option} {lib_dir}")
-                    break
-                except Exception:
-                    common.remove_if_exists(lib_dir)
-                    common.toolchains_print(common.toolchains_warning(f"Clone {lib} failed, retrying."))
-            else:
-                raise RuntimeError(common.toolchains_error(f"Clone {lib} failed."))
-            after_download_list.after_download_specific_lib(config, lib)
-            common.status_counter.add_success()
-        else:
-            _exist_echo(lib)
+    tasks = [
+        asyncio.create_task(_download_from_github(config, lib, url_fields))
+        for lib, url_fields in all_lib_list.get_prefer_git_lib_list(config).items()
+    ]
 
     # 下载非git托管代码
     for lib in config.extra_lib_list:
         assert lib in all_lib_list.extra_lib_list, common.toolchains_error(f"Unknown extra lib: {lib}")
         if not all_lib_list.extra_lib_list[lib].check_exist(config):
-            download_specific_extra_lib(config, lib)
+            tasks.append(asyncio.create_task(download_specific_extra_lib(config, lib)))
             after_download_list.after_download_specific_lib(config, lib)
         else:
             _exist_echo(lib)
     for lib in ("gmp", "mpfr", "isl", "mpc"):
         if not (config.home / "gcc" / lib).exists():
-            download_gcc_contrib(config)
+            tasks.append(asyncio.create_task(download_gcc_contrib(config)))
             break
     else:
         _exist_echo("gcc_contrib")
+
+    # 开始下载
+    common.toolchains_print(common.toolchains_info(f"(0/{len(tasks)}) start downloading."))
+    for i, a_task in enumerate(asyncio.as_completed(tasks)):
+        info = await a_task
+        if info is not None:
+            common.toolchains_print(common.toolchains_info(f"({i + 1}/{len(tasks)}) {info}"))
+
     common.toolchains_print(common.toolchains_success("Download libs successfully."))
 
 
@@ -347,7 +381,7 @@ def main() -> int:
             case "update":
                 update(current_config)
             case "download":
-                download(current_config)
+                asyncio.run(download(current_config))
             case "auto":
                 auto_download(current_config)
             case "system":
