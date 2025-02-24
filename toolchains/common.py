@@ -1446,7 +1446,7 @@ class basic_build_configure(basic_configure):
         build: str | None = None,
         jobs: int | None = None,
         prefix_dir: str = str(Path.home()),
-        compress_level: int = 19,
+        compress_level: int = 17,
         base_path: Path = Path.cwd(),
     ) -> None:
         """初始化工具链构建配置
@@ -1455,7 +1455,7 @@ class basic_build_configure(basic_configure):
             build (str | None, optional): 构建平台. 默认为gcc -dumpmachine输出的结果，即当前平台.
             jobs (int | None, optional): 构建时的并发数. 默认为当前平台cpu核心数的1.5倍.
             prefix_dir (str, optional): 工具链安装根目录. 默认为用户主目录.
-            compress_level (int, optional): zstd压缩等级(1~22). 默认为19级
+            compress_level (int, optional): zstd压缩等级(1~22). 默认为17级
             base_path (Path, optional): 将prefix转化为绝对路径时使用的基路径
         """
 
