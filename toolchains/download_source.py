@@ -396,7 +396,7 @@ class configure(common.basic_configure):
 
     def __init__(
         self,
-        glibc_version: str | None = None,
+        glibc_version: str | None = get_current_glibc_version(),
         clone_type: str = git_clone_type.partial,
         depth: int = 1,
         ssh: bool = False,
@@ -417,7 +417,7 @@ class configure(common.basic_configure):
         """
 
         super().__init__()
-        self.glibc_version = glibc_version or get_current_glibc_version()
+        self.glibc_version = glibc_version
         self.clone_type = git_clone_type[clone_type]
         self.shallow_clone_depth = depth
         self.register_encode_name_map("depth", "shallow_clone_depth")
