@@ -84,9 +84,9 @@ class color(enum.StrEnum):
 
         match (message_prefix):
             case message_type.toolchains:
-                return color.toolchains
+                return color.toolchains + " "
             case message_type.toolchain_internal:
-                return color.toolchains_internal
+                return color.toolchains_internal + " "
             case message_type.none:
                 return ""
 
@@ -102,6 +102,13 @@ class status_counter:
         success: int = 0
 
     __quiet: bool = False
+
+    @classmethod
+    def clear(cls) -> None:
+        """清空计数"""
+
+        for key in filter(lambda key: not key.startswith("_"), [*vars(cls.__counter)]):
+            setattr(cls.__counter, key, 0)
 
     @classmethod
     def add_error(cls) -> None:

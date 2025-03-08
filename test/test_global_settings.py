@@ -47,6 +47,7 @@ def test_need_quiet() -> None:
 def test_status_counter() -> None:
     """测试状态计数器"""
 
+    status_counter.clear()
     for name in ("error", "warning", "note", "info", "success"):
         getattr(status_counter, f"add_{name}")()
         assert status_counter.get_counter(name) == 1
