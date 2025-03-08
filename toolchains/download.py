@@ -81,15 +81,25 @@ def download(config: configure) -> None:
             url = url_fields.get_url(config.git_use_ssh)
             extra_options: list[str] = [*extra_git_options_list.get_option(config, lib), git_clone_type.get_clone_option(config)]
             extra_option = " ".join(extra_options)
+            # 首先从源上克隆代码，但不进行签出
             for _ in range(config.network_try_times):
                 try:
-                    common.run_command(f"git clone {url} {common.command_quiet.get_option()} {extra_option} {lib_dir}")
+                    common.run_command(f"git clone {url} {common.command_quiet.get_option()} {extra_option} --no-checkout {lib_dir}")
                     break
-                except Exception:
+                except:
                     common.remove_if_exists(lib_dir)
                     common.toolchains_print(common.toolchains_warning(f"Clone {lib} failed, retrying."))
             else:
                 raise RuntimeError(common.toolchains_error(f"Clone {lib} failed."))
+            # 从git储存库中签出HEAD
+            for _ in range(config.network_try_times):
+                try:
+                    common.run_command(f"git -C {lib_dir} checkout HEAD")
+                    break
+                except:
+                    common.toolchains_print(common.toolchains_warning(f"Clone {lib} failed, retrying."))
+            else:
+                raise RuntimeError(common.toolchains_error(f"Checkout {lib} failed."))
             after_download_list.after_download_specific_lib(config, lib)
             common.status_counter.add_success()
         else:

@@ -1218,9 +1218,9 @@ class basic_configure:
             "-q",
             "--quiet",
             action="count",
-            help="Increase quiet level. (use -q, -qq, etc.)"
-            'Level 1 will add options like "--quiet" to commands we run if possible.'
-            "Level 2 will disable command echos of this program."
+            help="Increase quiet level (use -q, -qq, etc.). "
+            'Level 1 will add options like "--quiet" to commands we run if possible. '
+            "Level 2 will disable command echos of this program. "
             "Level 3 and above will disable the echo of status counter in this program.",
             default=0,
         )
