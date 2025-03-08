@@ -288,13 +288,13 @@ def main() -> int:
     auto_parser = subparsers.add_parser(
         "auto", help="Download missing libs, then update installed libs. This may take more time because of twice check."
     )
-    system_parser = subparsers.add_parser("system", help="Print needy system libs and exit.")
+    subparsers.add_parser("system", help="Print needy system libs and exit.")
     remove_parser = subparsers.add_parser(
         "remove", help="Remove installed libs. Use without specific lib name to remove all installed libs."
     )
 
     # 添加公共选项
-    for subparser in (update_parser, download_parser, auto_parser, system_parser, remove_parser):
+    for subparser in (update_parser, download_parser, auto_parser, remove_parser):
         configure.add_argument(subparser)
     for subparser in (update_parser, download_parser, auto_parser):
         subparser.add_argument(
@@ -343,11 +343,14 @@ def main() -> int:
     errno = 0
     args = parser.parse_args()
     try:
+        if args.command == "system":
+            print(common.toolchains_info(f"Please install following system libs: \n{' '.join(get_system_lib_list())}"))
+            common.status_counter.set_quiet(True)
+            return 0
+
         # 检查输入是否合法
         _check_input(args)
-
         current_config = configure.parse_args(args)
-
         # 检查合并配置后环境是否正确
         current_config.check(args.command == "download")
         current_config.save_config()
@@ -359,8 +362,6 @@ def main() -> int:
                 download(current_config)
             case "auto":
                 auto_download(current_config)
-            case "system":
-                print(common.toolchains_info(f"Please install following system libs: \n{' '.join(get_system_lib_list())}"))
             case "remove":
                 remove(current_config, args.remove or all_lib_list.all_lib_list)
             case _:

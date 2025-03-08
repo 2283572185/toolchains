@@ -1342,15 +1342,6 @@ class basic_configure:
         """
 
         default_list: dict[str, typing.Any] = cls._get_default_param_list()
-
-        def set_default(**parma_list: typing.Any) -> None:
-            """设置参数的默认值"""
-
-            for parma, value in parma_list.items():
-                setattr(args, parma, getattr(args, parma, value))
-
-        # 针对未添加通用选项的情况
-        set_default(home=default_list["home"], dry_run=False, quiet=0, import_file=None, export_file=None)
         check_home(args.home)
         command_dry_run.set(args.dry_run)
         if args.quiet >= 1:

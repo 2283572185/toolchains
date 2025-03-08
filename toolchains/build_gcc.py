@@ -126,15 +126,14 @@ def main() -> int:
     errno = 0
     args = parser.parse_args()
     try:
-        _check_input(args, args.command == "build")
-        current_config = configure.parse_args(args)
-
-        # 检查合并配置后环境是否正确
-        current_config.check()
-        current_config.save_config()
-
         match (args.command):
             case "build":
+                _check_input(args, args.command == "build")
+                current_config = configure.parse_args(args)
+
+                # 检查合并配置后环境是否正确
+                current_config.check()
+                current_config.save_config()
                 build_specific_gcc(current_config, args.host, args.target)
             case "dump":
                 dump_support_platform()
