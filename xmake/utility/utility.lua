@@ -186,7 +186,7 @@ function get_sysroot_option()
     _update_cache(cache_info)
 
     if sysroot then
-        return get_option_list(sysroot)
+        return get_option_list()
     else
         if detect then
             cprint("detecting for sysroot ... ${color.failure}no")
