@@ -225,7 +225,6 @@ class all_lib_list:
         "git",
         "gcc",
         "g++",
-        "python3",
         "tar",
         "zstd",
         "unzip",
@@ -240,7 +239,6 @@ class all_lib_list:
         "clang",
         "lld",
         "libxml2-dev",
-        "zlib1g-dev",
         "wget",
     ]
     git_lib_list_github: typing.Final[dict[str, git_url]] = {
