@@ -451,7 +451,9 @@ def run_command(
         if not ignore_error:
             raise RuntimeError(toolchains_error(f'Command "{command}" failed.', add_counter=False))
         elif echo:
-            toolchains_print(toolchains_warning(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.', add_counter=False))
+            toolchains_print(
+                toolchains_warning(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.', add_counter=False)
+            )
         return None
     return result
 
@@ -1453,61 +1455,45 @@ def get_default_build_platform() -> str | None:
     return result.stdout.strip() if result else None
 
 
-class basic_build_configure(basic_configure):
-    """工具链构建配配置"""
+class basic_configure_with_prefix_build(basic_configure):
+    """带有prefix和build选项的基本配置"""
 
     build: str | None
-    jobs: int
     _origin_prefix_dir: str
     prefix_dir: Path
-    compress_level: int
 
     def __init__(
         self,
-        build: str | None = None,
-        jobs: int | None = None,
+        build: str | None = get_default_build_platform(),
         prefix_dir: str = str(Path.home()),
-        compress_level: int = 17,
         base_path: Path = Path.cwd(),
     ) -> None:
         """初始化工具链构建配置
 
         Args:
             build (str | None, optional): 构建平台. 默认为gcc -dumpmachine输出的结果，即当前平台.
-            jobs (int | None, optional): 构建时的并发数. 默认为当前平台cpu核心数的1.5倍.
             prefix_dir (str, optional): 工具链安装根目录. 默认为用户主目录.
-            compress_level (int, optional): zstd压缩等级(1~22). 默认为17级
             base_path (Path, optional): 将prefix转化为绝对路径时使用的基路径
         """
 
         super().__init__()
-        self.build = build or get_default_build_platform()
-        self.jobs = jobs or (os.cpu_count() or 1) + 2
+        self.build = build
         self._origin_prefix_dir = prefix_dir
         self.register_encode_name_map("prefix_dir", "_origin_prefix_dir")
         self.prefix_dir = resolve_path(prefix_dir, base_path)
-        self.compress_level = compress_level
 
     @classmethod
     def add_argument(cls, parser: argparse.ArgumentParser) -> None:
-        """为argparse添加--build、--jobs、--prefix和--compress选项
+        """为argparse添加--prefix选项
 
         Args:
             parser (argparse.ArgumentParser): 命令行解析器
         """
 
         super().add_argument(parser)
-        toolchain_type = typing.cast(str, getattr(cls, "toolchain_type"))
-        default_config = basic_build_configure()
+        default_config = basic_configure_with_prefix_build()
         parser.add_argument(
-            "--build", type=str, help=f"The build platform of the {toolchain_type} toolchain.", default=default_config.build
-        )
-        parser.add_argument(
-            "-j",
-            "--jobs",
-            type=int,
-            help="Number of concurrent jobs at build time.",
-            default=default_config.jobs,
+            "--build", type=str, help=f"The build platform of the toolchain.", default=default_config.build
         )
         action = parser.add_argument(
             "--prefix",
@@ -1519,6 +1505,49 @@ class basic_build_configure(basic_configure):
             default=default_config.prefix_dir,
         )
         setattr(action, "completer", dir_completer)
+
+
+class basic_build_configure(basic_configure_with_prefix_build):
+    """工具链构建配配置"""
+
+    jobs: int
+    _origin_prefix_dir: str
+    compress_level: int
+
+    def __init__(
+        self,
+        jobs: int | None = None,
+        compress_level: int = 17,
+    ) -> None:
+        """初始化工具链构建配置
+
+        Args:
+            jobs (int | None, optional): 构建时的并发数. 默认为当前平台cpu核心数的1.5倍.
+            compress_level (int, optional): zstd压缩等级(1~22). 默认为17级
+        """
+
+        super().__init__()
+        self.jobs = jobs or (os.cpu_count() or 1) + 2
+        self.register_encode_name_map("prefix_dir", "_origin_prefix_dir")
+        self.compress_level = compress_level
+
+    @classmethod
+    def add_argument(cls, parser: argparse.ArgumentParser) -> None:
+        """为argparse添加--jobs和--compress选项
+
+        Args:
+            parser (argparse.ArgumentParser): 命令行解析器
+        """
+
+        super().add_argument(parser)
+        default_config = basic_build_configure()
+        parser.add_argument(
+            "-j",
+            "--jobs",
+            type=int,
+            help="Number of concurrent jobs at build time.",
+            default=default_config.jobs,
+        )
         parser.add_argument(
             "--compress",
             dest="compress_level",

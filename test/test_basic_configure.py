@@ -12,23 +12,13 @@ from toolchains.common import command_dry_run
 type Path = py.path.LocalPath
 
 
-class basic_configure(common.basic_configure):
-    jobs: int
-
-    def __init__(self, jobs: int = 1) -> None:
-        super().__init__()
-        self.jobs = jobs
-
-
-class configure(basic_configure):
-    prefix: pathlib.Path
+class configure(common.basic_configure_with_prefix_build):
     libs: set[str]
     _origin_libs: set[str]
     _private: int  # 私有对象，在序列化/反序列化时不应该被访问
 
-    def __init__(self, prefix: str = str(pathlib.Path.home()), libs: list[str] | None = None) -> None:
+    def __init__(self, libs: list[str] | None = None) -> None:
         super().__init__()
-        self.prefix = pathlib.Path(prefix)
         self._origin_libs = {*(libs or [])}
         self.register_encode_name_map("libs", "_origin_libs")
         self.libs = {"basic", *self._origin_libs}
@@ -36,7 +26,7 @@ class configure(basic_configure):
 
     def __eq__(self, other: object) -> bool:
         assert isinstance(other, configure)
-        return self.home == other.home and self.jobs == other.jobs and self.prefix == other.prefix and self.libs == other.libs
+        return self.home == other.home and self.build == other.build and self.prefix_dir == other.prefix_dir and self.libs == other.libs
 
 
 def test_default_construct() -> None:
@@ -54,17 +44,15 @@ class test_basic_configure:
         cls.default_config = configure()
         cls.parser = argparse.ArgumentParser()
         subparsers = cls.parser.add_subparsers(dest="command")
-        jobs_parser = subparsers.add_parser("jobs")
+        build_parser = subparsers.add_parser("build")
         prefix_parser = subparsers.add_parser("prefix")
         libs_parser = subparsers.add_parser("libs")
 
         # 添加公共选项
-        for subparser in (jobs_parser, prefix_parser, libs_parser):
+        for subparser in (build_parser, prefix_parser, libs_parser):
             configure.add_argument(subparser)
 
         # 添加各个子命令的选项
-        jobs_parser.add_argument("--jobs", type=int, default=cls.default_config.jobs)
-        prefix_parser.add_argument("--prefix", type=str, default=cls.default_config.prefix)
         libs_parser.add_argument("--libs", nargs="*", action="extend")
 
     def test_common_args(self) -> None:
@@ -79,9 +67,9 @@ class test_basic_configure:
             subparser = typing.cast(argparse.ArgumentParser, subparser)
             for action in subparser._actions:
                 arg_list.add(action.dest)
-            assert {"home", "import_file", "export_file", "dry_run"} < arg_list
+            assert {"home", "import_file", "export_file", "dry_run", "build", "prefix_dir"} < arg_list
 
-    @pytest.mark.parametrize("command", ["jobs", "prefix", "libs"])
+    @pytest.mark.parametrize("command", ["build", "prefix", "libs"])
     def test_default_config(self, command: str) -> None:
         """测试在不传递参数全部使用默认设置的情况下，各个子命令是否解析参数得到的configure对象是否和默认一致
         针对basic_configure.parse_args
@@ -91,16 +79,16 @@ class test_basic_configure:
         current_config = configure.parse_args(args)
         assert self.default_config == current_config
 
-    def test_subcommand_jobs(self) -> None:
-        """测试jobs选项能否正常解析
+    def test_subcommand_build(self) -> None:
+        """测试build选项能否正常解析
         针对整数解析
         """
 
-        custom_jobs = 2
-        args = self.parser.parse_args(["jobs", f"--jobs={custom_jobs}"])
+        custom_build = "x86_64-w64-mingw32"
+        args = self.parser.parse_args(["build", f"--build={custom_build}"])
         current_config = configure.parse_args(args)
         gt = configure()
-        gt.jobs = custom_jobs
+        gt.build = custom_build
         assert current_config == gt
 
     def test_subcommand_prefix(self, tmpdir: Path) -> None:
@@ -111,7 +99,9 @@ class test_basic_configure:
         custom_prefix = str(tmpdir)
         args = self.parser.parse_args(["prefix", f"--prefix={custom_prefix}"])
         current_config = configure.parse_args(args)
-        assert current_config == configure(prefix=custom_prefix)
+        gt = configure()
+        gt.prefix_dir = pathlib.Path(custom_prefix)
+        assert current_config == gt
 
     def test_subcommand_libs(self) -> None:
         """测试libs选项能否正常解析
@@ -142,8 +132,8 @@ class test_basic_configure:
 
         test_json: dict[str, typing.Any] = {
             "home": str(home),
-            "jobs": self.default_config.jobs,
-            "prefix": str(self.default_config.prefix),
+            "build": self.default_config.build,
+            "prefix": str(self.default_config.prefix_dir),
             "libs": import_libs,
         }
         with open(tmpfile, "w") as file:
@@ -151,8 +141,9 @@ class test_basic_configure:
 
         args = self.parser.parse_args(["prefix", "--import", str(tmpfile), "--prefix", custom_prefix])
         current_config = configure.parse_args(args)
-        gt = configure(prefix=custom_prefix, libs=["extra1", "extra2"])
-        gt.jobs = self.default_config.jobs
+        gt = configure(libs=["extra1", "extra2"])
+        gt.prefix_dir = pathlib.Path(custom_prefix)
+        gt.build = self.default_config.build
         gt.home = home
         assert current_config == gt
 
@@ -160,7 +151,7 @@ class test_basic_configure:
         args = self.parser.parse_args(["libs", "--import", str(tmpfile), "--libs"])
         current_config = configure.parse_args(args)
         gt = configure()
-        gt.jobs = self.default_config.jobs
+        gt.build = self.default_config.build
         gt.home = home
         assert current_config == gt
 
@@ -177,7 +168,7 @@ class test_basic_configure:
         current_config = configure.parse_args(args)
         current_config.save_config()
 
-        gt: dict[str, typing.Any] = {"home": ".", "jobs": self.default_config.jobs, "prefix": custom_prefix, "libs": []}
+        gt: dict[str, typing.Any] = {"home": ".", "build": self.default_config.build, "prefix_dir": custom_prefix, "libs": []}
         with tmpfile.open() as file:
             export_config = json.load(file)
         assert export_config == gt
