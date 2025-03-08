@@ -340,10 +340,9 @@ def main() -> int:
     )
 
     argcomplete.autocomplete(parser)
-
     errno = 0
+    args = parser.parse_args()
     try:
-        args = parser.parse_args()
         # 检查输入是否合法
         _check_input(args)
 

@@ -124,8 +124,8 @@ def main() -> int:
 
     argcomplete.autocomplete(parser)
     errno = 0
+    args = parser.parse_args()
     try:
-        args = parser.parse_args()
         _check_input(args, args.command == "build")
         current_config = configure.parse_args(args)
 

@@ -620,7 +620,7 @@ class extra_git_options_list:
         Returns:
             list[str]: 额外选项表
         """
-        if lib in vars(extra_git_options_list) and not common.command_dry_run.get():
+        if lib in vars(extra_git_options_list):
             return typing.cast(list[str], getattr(extra_git_options_list, lib)(config))
         return []
 
