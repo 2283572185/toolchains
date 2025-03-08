@@ -168,78 +168,101 @@ class status_counter:
             )
 
 
-def toolchains_warning(string: str, message_prefix: message_type = message_type.toolchains) -> str:
+def _status_counter_wrapper[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
+    """根据add_counter参数确定是否增加状态计数器"""
+    signature = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        bound_args = signature.bind(*args, **kwargs)
+        bound_args.apply_defaults()
+        need_add = bound_args.arguments.get("add_counter")
+        assert isinstance(need_add, bool), f'Param "add_counter" of {fn} must be a bool.'
+        if need_add:
+            status = fn.__name__.split("_")[1]
+            getattr(status_counter, f"add_{status}")()
+        return fn(*bound_args.args, **bound_args.kwargs)
+
+    return wrapper
+
+
+@_status_counter_wrapper
+def toolchains_warning(string: str, message_prefix: message_type = message_type.toolchains, add_counter: bool = True) -> str:
     """返回toolchains的警告信息
 
     Args:
         string (str): 警告字符串
         message_prefix (message_type, optional): 前缀类型
+        add_counter (bool, optional): 增加状态计数器相应状态计数
 
     Returns:
         str: [toolchains] warning
     """
 
-    status_counter.add_warning()
     return f"{color.get_prefix(message_prefix)}{color.warning.wrapper(string)}"
 
 
-def toolchains_error(string: str, message_prefix: message_type = message_type.toolchains) -> str:
+@_status_counter_wrapper
+def toolchains_error(string: str, message_prefix: message_type = message_type.toolchains, add_counter: bool = True) -> str:
     """返回toolchains的错误信息
 
     Args:
         string (str): 错误字符串
         message_prefix (message_type, optional): 前缀类型
+        add_counter (bool, optional): 增加状态计数器相应状态计数
 
     Returns:
         str: [toolchains] error
     """
 
-    status_counter.add_error()
     return f"{color.get_prefix(message_prefix)}{color.error.wrapper(string)}"
 
 
-def toolchains_success(string: str, message_prefix: message_type = message_type.toolchains) -> str:
+@_status_counter_wrapper
+def toolchains_success(string: str, message_prefix: message_type = message_type.toolchains, add_counter: bool = True) -> str:
     """返回toolchains的成功信息
 
     Args:
         string (str): 成功字符串
         message_prefix (message_type, optional): 前缀类型
+        add_counter (bool, optional): 增加状态计数器相应状态计数
 
     Returns:
         str: [toolchains] success
     """
 
-    status_counter.add_success()
     return f"{color.get_prefix(message_prefix)}{color.success.wrapper(string)}"
 
 
-def toolchains_note(string: str, message_prefix: message_type = message_type.toolchains) -> str:
+@_status_counter_wrapper
+def toolchains_note(string: str, message_prefix: message_type = message_type.toolchains, add_counter: bool = True) -> str:
     """返回toolchains的提示信息
 
     Args:
         string (str): 提示字符串
         message_prefix (message_type, optional): 前缀类型
+        add_counter (bool, optional): 增加状态计数器相应状态计数
 
     Returns:
         str: [toolchains] note
     """
 
-    status_counter.add_note()
     return f"{color.get_prefix(message_prefix)}{color.note.wrapper(string)}"
 
 
-def toolchains_info(string: str, message_prefix: message_type = message_type.toolchains) -> str:
+@_status_counter_wrapper
+def toolchains_info(string: str, message_prefix: message_type = message_type.toolchains, add_counter: bool = True) -> str:
     """返回toolchains的普通信息
 
     Args:
         string (str): 提示字符串
         message_prefix (message_type, optional): 前缀类型
+        add_counter (bool, optional): 增加状态计数器相应状态计数
 
     Returns:
         str: [toolchain] info
     """
 
-    status_counter.add_info()
     return f"{color.get_prefix(message_prefix)}{string}"
 
 
@@ -426,9 +449,9 @@ def run_command(
         )
     except subprocess.CalledProcessError as e:
         if not ignore_error:
-            raise RuntimeError(toolchains_error(f'Command "{command}" failed.'))
+            raise RuntimeError(toolchains_error(f'Command "{command}" failed.', add_counter=False))
         elif echo:
-            toolchains_print(toolchains_warning(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.'))
+            toolchains_print(toolchains_warning(f'Command "{command}" failed with errno={e.returncode}, but it is ignored.', add_counter=False))
         return None
     return result
 
